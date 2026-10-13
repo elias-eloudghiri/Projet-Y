@@ -30,13 +30,11 @@ public class AuthController {
     private final AuthCookies authCookies;
 
     public record RegisterRequest(
-            @NotNull @Size(min = PASSWORD_MIN_LENGTH, max = PASSWORD_MAX_LENGTH) String password) {
-    }
+            @NotNull @Size(min = PASSWORD_MIN_LENGTH, max = PASSWORD_MAX_LENGTH) String password) {}
 
     public record LoginRequest(
             @NotBlank @Size(max = 64) String pseudo,
-            @NotBlank @Size(max = PASSWORD_MAX_LENGTH) String password) {
-    }
+            @NotBlank @Size(max = PASSWORD_MAX_LENGTH) String password) {}
 
     public record UserResponse(String pseudo, String role) {
         static UserResponse of(User user) {
@@ -53,24 +51,29 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest http) {
-        AuthService.Session session = authService.login(request.pseudo(), request.password(), http.getRemoteAddr());
+    public ResponseEntity<UserResponse> login(
+            @Valid @RequestBody LoginRequest request, HttpServletRequest http) {
+        AuthService.Session session =
+                authService.login(request.pseudo(), request.password(), http.getRemoteAddr());
         return ResponseEntity.ok()
                 .headers(authCookies.forSession(session))
                 .body(UserResponse.of(session.user()));
     }
 
     /**
-     * On failure the cookies are left untouched: with several tabs, a request that lost the rotation race
-     * must not erase the fresh cookies another tab has just received.
+     * On failure the cookies are left untouched: with several tabs, a request that lost the
+     * rotation race must not erase the fresh cookies another tab has just received.
      */
     @PostMapping("/refresh")
     public ResponseEntity<UserResponse> refresh(
             @CookieValue(name = AuthCookies.REFRESH, required = false) String refreshToken) {
-        return authService.refresh(refreshToken)
-                .map(session -> ResponseEntity.ok()
-                        .headers(authCookies.forSession(session))
-                        .body(UserResponse.of(session.user())))
+        return authService
+                .refresh(refreshToken)
+                .map(
+                        session ->
+                                ResponseEntity.ok()
+                                        .headers(authCookies.forSession(session))
+                                        .body(UserResponse.of(session.user())))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 

@@ -30,23 +30,37 @@ import org.springframework.web.util.WebUtils;
 public class SecurityConfig {
 
     /** Auth endpoints that must work even with an expired or invalid access cookie. */
-    private static final Set<String> PUBLIC_AUTH_PATHS = Set.of(
-            "/api/auth/register", "/api/auth/login", "/api/auth/refresh", "/api/auth/logout");
+    private static final Set<String> PUBLIC_AUTH_PATHS =
+            Set.of(
+                    "/api/auth/register",
+                    "/api/auth/login",
+                    "/api/auth/refresh",
+                    "/api/auth/logout");
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // CSRF: cookies are SameSite=Strict and the API only accepts JSON, so Spring's CSRF token is not used.
-        http
-                .csrf(csrf -> csrf.disable())
+        // CSRF: cookies are SameSite=Strict and the API only accepts JSON, so Spring's CSRF token
+        // is not used.
+        http.csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_AUTH_PATHS.toArray(String[]::new)).permitAll()
-                        .requestMatchers("/actuator/health/**", "/actuator/health", "/error").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth -> oauth
-                        .bearerTokenResolver(cookieTokenResolver())
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers(PUBLIC_AUTH_PATHS.toArray(String[]::new))
+                                        .permitAll()
+                                        .requestMatchers(
+                                                "/actuator/health/**", "/actuator/health", "/error")
+                                        .permitAll()
+                                        .requestMatchers("/api/admin/**")
+                                        .hasRole("ADMIN")
+                                        .anyRequest()
+                                        .authenticated())
+                .oauth2ResourceServer(
+                        oauth ->
+                                oauth.bearerTokenResolver(cookieTokenResolver())
+                                        .jwt(
+                                                jwt ->
+                                                        jwt.jwtAuthenticationConverter(
+                                                                jwtAuthenticationConverter())));
         return http.build();
     }
 
@@ -63,15 +77,17 @@ public class SecurityConfig {
 
     @Bean
     JwtDecoder jwtDecoder(AuthProperties properties) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey(properties))
-                .macAlgorithm(MacAlgorithm.HS256)
-                .build();
+        NimbusJwtDecoder decoder =
+                NimbusJwtDecoder.withSecretKey(secretKey(properties))
+                        .macAlgorithm(MacAlgorithm.HS256)
+                        .build();
         decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(AccessTokenService.ISSUER));
         return decoder;
     }
 
     private static SecretKey secretKey(AuthProperties properties) {
-        return new SecretKeySpec(properties.jwtSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return new SecretKeySpec(
+                properties.jwtSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
     }
 
     private static BearerTokenResolver cookieTokenResolver() {

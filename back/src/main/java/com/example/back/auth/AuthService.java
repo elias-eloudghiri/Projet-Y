@@ -26,14 +26,15 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final Clock clock;
 
-    /** Hash checked when the pseudo does not exist, so that response time does not reveal existing accounts. */
+    /**
+     * Hash checked when the pseudo does not exist, so that response time does not reveal existing
+     * accounts.
+     */
     private volatile String dummyHash;
 
-    public record Session(User user, String accessToken, String refreshToken) {
-    }
+    public record Session(User user, String accessToken, String refreshToken) {}
 
-    public static class InvalidCredentialsException extends RuntimeException {
-    }
+    public static class InvalidCredentialsException extends RuntimeException {}
 
     public static class TooManyAttemptsException extends RuntimeException {
         private final Duration retryAfter;
@@ -55,7 +56,9 @@ public class AuthService {
                 continue;
             }
             try {
-                User user = userRepository.saveAndFlush(new User(pseudo, hash, Role.USER, clock.instant()));
+                User user =
+                        userRepository.saveAndFlush(
+                                new User(pseudo, hash, Role.USER, clock.instant()));
                 return openSession(user);
             } catch (DataIntegrityViolationException e) {
                 // Pseudo taken concurrently: try another one.
@@ -66,9 +69,12 @@ public class AuthService {
 
     public Session login(String pseudoInput, String password, String ip) {
         String pseudo = PseudoGenerator.normalize(pseudoInput);
-        loginAttemptService.blockedFor(pseudo, ip).ifPresent(remaining -> {
-            throw new TooManyAttemptsException(remaining);
-        });
+        loginAttemptService
+                .blockedFor(pseudo, ip)
+                .ifPresent(
+                        remaining -> {
+                            throw new TooManyAttemptsException(remaining);
+                        });
 
         Optional<User> user = userRepository.findByPseudo(pseudo);
         boolean matches;
@@ -91,8 +97,14 @@ public class AuthService {
     }
 
     public Optional<Session> refresh(String refreshToken) {
-        return refreshTokenService.rotate(refreshToken)
-                .map(r -> new Session(r.user(), accessTokenService.issue(r.user()), r.refreshToken()));
+        return refreshTokenService
+                .rotate(refreshToken)
+                .map(
+                        r ->
+                                new Session(
+                                        r.user(),
+                                        accessTokenService.issue(r.user()),
+                                        r.refreshToken()));
     }
 
     public void logout(String refreshToken) {

@@ -10,8 +10,17 @@ import org.junit.jupiter.api.Test;
 class LoginAttemptServiceTest {
 
     private final MutableClock clock = new MutableClock();
-    private final AuthProperties properties = new AuthProperties("x".repeat(32), Duration.ofMinutes(15),
-            Duration.ofDays(7), Duration.ofSeconds(10), true, 5, Duration.ofMinutes(15), "admin-000000", null);
+    private final AuthProperties properties =
+            new AuthProperties(
+                    "x".repeat(32),
+                    Duration.ofMinutes(15),
+                    Duration.ofDays(7),
+                    Duration.ofSeconds(10),
+                    true,
+                    5,
+                    Duration.ofMinutes(15),
+                    "admin-000000",
+                    null);
     private final LoginAttemptService service = new LoginAttemptService(properties, clock);
 
     @Test

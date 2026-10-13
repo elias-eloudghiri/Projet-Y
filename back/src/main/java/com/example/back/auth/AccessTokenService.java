@@ -27,14 +27,15 @@ public class AccessTokenService {
 
     public String issue(User user) {
         Instant now = clock.instant();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer(ISSUER)
-                .subject(user.getId().toString())
-                .issuedAt(now)
-                .expiresAt(now.plus(properties.accessTokenTtl()))
-                .claim(CLAIM_PSEUDO, user.getPseudo())
-                .claim(CLAIM_ROLE, user.getRole().name())
-                .build();
+        JwtClaimsSet claims =
+                JwtClaimsSet.builder()
+                        .issuer(ISSUER)
+                        .subject(user.getId().toString())
+                        .issuedAt(now)
+                        .expiresAt(now.plus(properties.accessTokenTtl()))
+                        .claim(CLAIM_PSEUDO, user.getPseudo())
+                        .claim(CLAIM_ROLE, user.getRole().name())
+                        .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }

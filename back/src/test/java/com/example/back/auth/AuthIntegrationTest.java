@@ -36,17 +36,13 @@ class AuthIntegrationTest {
 
     private static final String PASSWORD = "correct-horse-battery";
 
-    @Autowired
-    private MockMvc mvc;
+    @Autowired private MockMvc mvc;
 
-    @Autowired
-    private UserRepository userRepository;
+    @Autowired private UserRepository userRepository;
 
-    @Autowired
-    private MutableClock clock;
+    @Autowired private MutableClock clock;
 
-    private record Tokens(String pseudo, String access, String refresh) {
-    }
+    private record Tokens(String pseudo, String access, String refresh) {}
 
     @BeforeEach
     void resetClock() {
@@ -57,18 +53,23 @@ class AuthIntegrationTest {
 
     @Test
     void registerGeneratesPseudoHashesPasswordAndOpensSession() throws Exception {
-        MvcResult result = register(PASSWORD)
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.pseudo").value(org.hamcrest.Matchers.matchesPattern("^[a-z]+-[0-9]{6}$")))
-                .andExpect(jsonPath("$.role").value("USER"))
-                .andExpect(cookie().httpOnly(AuthCookies.ACCESS, true))
-                .andExpect(cookie().secure(AuthCookies.ACCESS, true))
-                .andExpect(cookie().sameSite(AuthCookies.ACCESS, "Strict"))
-                .andExpect(cookie().maxAge(AuthCookies.ACCESS, 15 * 60))
-                .andExpect(cookie().httpOnly(AuthCookies.REFRESH, true))
-                .andExpect(cookie().path(AuthCookies.REFRESH, "/api/auth"))
-                .andExpect(cookie().maxAge(AuthCookies.REFRESH, 7 * 24 * 3600))
-                .andReturn();
+        MvcResult result =
+                register(PASSWORD)
+                        .andExpect(status().isCreated())
+                        .andExpect(
+                                jsonPath("$.pseudo")
+                                        .value(
+                                                org.hamcrest.Matchers.matchesPattern(
+                                                        "^[a-z]+-[0-9]{6}$")))
+                        .andExpect(jsonPath("$.role").value("USER"))
+                        .andExpect(cookie().httpOnly(AuthCookies.ACCESS, true))
+                        .andExpect(cookie().secure(AuthCookies.ACCESS, true))
+                        .andExpect(cookie().sameSite(AuthCookies.ACCESS, "Strict"))
+                        .andExpect(cookie().maxAge(AuthCookies.ACCESS, 15 * 60))
+                        .andExpect(cookie().httpOnly(AuthCookies.REFRESH, true))
+                        .andExpect(cookie().path(AuthCookies.REFRESH, "/api/auth"))
+                        .andExpect(cookie().maxAge(AuthCookies.REFRESH, 7 * 24 * 3600))
+                        .andReturn();
 
         String pseudo = JsonPath.read(result.getResponse().getContentAsString(), "$.pseudo");
         User user = userRepository.findByPseudo(pseudo).orElseThrow();
@@ -85,8 +86,13 @@ class AuthIntegrationTest {
 
     @Test
     void registerIgnoresAnyPseudoSentByClient() throws Exception {
-        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"password\":\"" + PASSWORD + "\",\"pseudo\":\"lerat-000001\"}"))
+        mvc.perform(
+                        post("/api/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"password\":\""
+                                                + PASSWORD
+                                                + "\",\"pseudo\":\"lerat-000001\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.pseudo").value(org.hamcrest.Matchers.not("lerat-000001")));
     }
@@ -154,9 +160,11 @@ class AuthIntegrationTest {
     void publicAuthEndpointsIgnoreInvalidAccessCookie() throws Exception {
         String pseudo = registerAndGetTokens().pseudo();
 
-        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .cookie(new Cookie(AuthCookies.ACCESS, "expired-or-garbage"))
-                        .content(loginJson(pseudo, PASSWORD)))
+        mvc.perform(
+                        post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .cookie(new Cookie(AuthCookies.ACCESS, "expired-or-garbage"))
+                                .content(loginJson(pseudo, PASSWORD)))
                 .andExpect(status().isOk());
     }
 
@@ -164,7 +172,9 @@ class AuthIntegrationTest {
     void adminRouteIsForbiddenToUsers() throws Exception {
         Tokens tokens = registerAndGetTokens();
 
-        mvc.perform(get("/api/admin/anything").cookie(new Cookie(AuthCookies.ACCESS, tokens.access())))
+        mvc.perform(
+                        get("/api/admin/anything")
+                                .cookie(new Cookie(AuthCookies.ACCESS, tokens.access())))
                 .andExpect(status().isForbidden());
     }
 
@@ -174,11 +184,12 @@ class AuthIntegrationTest {
     void refreshRotatesToken() throws Exception {
         Tokens tokens = registerAndGetTokens();
 
-        MvcResult result = refresh(tokens.refresh())
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.pseudo").value(tokens.pseudo()))
-                .andExpect(cookie().exists(AuthCookies.ACCESS))
-                .andReturn();
+        MvcResult result =
+                refresh(tokens.refresh())
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.pseudo").value(tokens.pseudo()))
+                        .andExpect(cookie().exists(AuthCookies.ACCESS))
+                        .andReturn();
         String newRefresh = result.getResponse().getCookie(AuthCookies.REFRESH).getValue();
 
         assertThat(newRefresh).isNotEqualTo(tokens.refresh());
@@ -229,7 +240,9 @@ class AuthIntegrationTest {
     void logoutInvalidatesRefreshTokenAndClearsCookies() throws Exception {
         Tokens tokens = registerAndGetTokens();
 
-        mvc.perform(post("/api/auth/logout").cookie(new Cookie(AuthCookies.REFRESH, tokens.refresh())))
+        mvc.perform(
+                        post("/api/auth/logout")
+                                .cookie(new Cookie(AuthCookies.REFRESH, tokens.refresh())))
                 .andExpect(status().isNoContent())
                 .andExpect(cookie().maxAge(AuthCookies.ACCESS, 0))
                 .andExpect(cookie().maxAge(AuthCookies.REFRESH, 0));
@@ -243,7 +256,9 @@ class AuthIntegrationTest {
         MvcResult second = login(first.pseudo(), PASSWORD, "10.0.0.5").andReturn();
         String secondRefresh = second.getResponse().getCookie(AuthCookies.REFRESH).getValue();
 
-        mvc.perform(post("/api/auth/logout").cookie(new Cookie(AuthCookies.REFRESH, first.refresh())))
+        mvc.perform(
+                        post("/api/auth/logout")
+                                .cookie(new Cookie(AuthCookies.REFRESH, first.refresh())))
                 .andExpect(status().isNoContent());
 
         refresh(secondRefresh).andExpect(status().isOk());
@@ -264,21 +279,27 @@ class AuthIntegrationTest {
     // --- Helpers ---
 
     private ResultActions register(String password) throws Exception {
-        return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"password\":\"" + password + "\"}"));
+        return mvc.perform(
+                post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"" + password + "\"}"));
     }
 
     private ResultActions login(String pseudo, String password, String ip) throws Exception {
-        return mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content(loginJson(pseudo, password))
-                .with(request -> {
-                    request.setRemoteAddr(ip);
-                    return request;
-                }));
+        return mvc.perform(
+                post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson(pseudo, password))
+                        .with(
+                                request -> {
+                                    request.setRemoteAddr(ip);
+                                    return request;
+                                }));
     }
 
     private ResultActions refresh(String refreshToken) throws Exception {
-        return mvc.perform(post("/api/auth/refresh").cookie(new Cookie(AuthCookies.REFRESH, refreshToken)));
+        return mvc.perform(
+                post("/api/auth/refresh").cookie(new Cookie(AuthCookies.REFRESH, refreshToken)));
     }
 
     private Tokens registerAndGetTokens() throws Exception {

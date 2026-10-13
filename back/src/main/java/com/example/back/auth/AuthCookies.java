@@ -20,8 +20,16 @@ public class AuthCookies {
 
     public HttpHeaders forSession(AuthService.Session session) {
         HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.SET_COOKIE, cookie(ACCESS, session.accessToken(), "/", properties.accessTokenTtl()));
-        headers.add(HttpHeaders.SET_COOKIE, cookie(REFRESH, session.refreshToken(), REFRESH_PATH, properties.refreshTokenTtl()));
+        headers.add(
+                HttpHeaders.SET_COOKIE,
+                cookie(ACCESS, session.accessToken(), "/", properties.accessTokenTtl()));
+        headers.add(
+                HttpHeaders.SET_COOKIE,
+                cookie(
+                        REFRESH,
+                        session.refreshToken(),
+                        REFRESH_PATH,
+                        properties.refreshTokenTtl()));
         return headers;
     }
 

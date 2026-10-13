@@ -29,6 +29,8 @@
 	<properties>
 		<java.version>25</java.version>
 		<bouncycastle.version>1.80</bouncycastle.version>
+		<spotless.version>2.46.1</spotless.version>
+		<google-java-format.version>1.28.0</google-java-format.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -130,6 +132,29 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<!-- Lint/format: `./mvnw spotless:apply` to fix, `spotless:check` runs in `verify` -->
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>${spotless.version}</version>
+				<configuration>
+					<java>
+						<googleJavaFormat>
+							<version>${google-java-format.version}</version>
+							<style>AOSP</style>
+							<reflowLongStrings>true</reflowLongStrings>
+						</googleJavaFormat>
+						<removeUnusedImports/>
+					</java>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

@@ -17,8 +17,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Server-side record of a refresh token. Only the SHA-256 hash of the token is stored.
- * Every rotation of the same login session shares one {@code familyId}.
+ * Server-side record of a refresh token. Only the SHA-256 hash of the token is stored. Every
+ * rotation of the same login session shares one {@code familyId}.
  */
 @Entity
 @Table(name = "refresh_tokens")
@@ -49,7 +49,8 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    public RefreshToken(User user, String tokenHash, UUID familyId, Instant createdAt, Instant expiresAt) {
+    public RefreshToken(
+            User user, String tokenHash, UUID familyId, Instant createdAt, Instant expiresAt) {
         this.user = user;
         this.tokenHash = tokenHash;
         this.familyId = familyId;

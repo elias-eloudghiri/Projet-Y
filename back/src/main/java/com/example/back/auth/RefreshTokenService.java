@@ -19,9 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Opaque refresh tokens with rotation and reuse detection.
- * Presenting an already rotated token revokes its whole family (likely theft), except within a short
- * grace window that absorbs concurrent refreshes from several tabs.
+ * Opaque refresh tokens with rotation and reuse detection. Presenting an already rotated token
+ * revokes its whole family (likely theft), except within a short grace window that absorbs
+ * concurrent refreshes from several tabs.
  */
 @Slf4j
 @Service
@@ -35,8 +35,7 @@ public class RefreshTokenService {
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
-    public record Rotation(User user, String refreshToken) {
-    }
+    public record Rotation(User user, String refreshToken) {}
 
     @Transactional
     public String issue(User user) {
@@ -62,13 +61,15 @@ public class RefreshTokenService {
             // Revoked concurrently by another request: inside the grace window by definition.
             return Optional.empty();
         }
-        return Optional.of(new Rotation(token.getUser(), issue(token.getUser(), token.getFamilyId())));
+        return Optional.of(
+                new Rotation(token.getUser(), issue(token.getUser(), token.getFamilyId())));
     }
 
     /** Logout: revokes the whole session (family) the token belongs to. */
     @Transactional
     public void revoke(String rawToken) {
-        findByRawToken(rawToken).ifPresent(token -> repository.revokeFamily(token.getFamilyId(), clock.instant()));
+        findByRawToken(rawToken)
+                .ifPresent(token -> repository.revokeFamily(token.getFamilyId(), clock.instant()));
     }
 
     @Scheduled(cron = "0 0 4 * * *")
@@ -83,15 +84,24 @@ public class RefreshTokenService {
         random.nextBytes(bytes);
         String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Instant now = clock.instant();
-        repository.save(new RefreshToken(user, hash(rawToken), familyId, now, now.plus(properties.refreshTokenTtl())));
+        repository.save(
+                new RefreshToken(
+                        user,
+                        hash(rawToken),
+                        familyId,
+                        now,
+                        now.plus(properties.refreshTokenTtl())));
         return rawToken;
     }
 
     private void handleReuse(RefreshToken token, Instant now) {
-        boolean withinGrace = token.getRevokedAt().plus(properties.refreshReuseGrace()).isAfter(now);
+        boolean withinGrace =
+                token.getRevokedAt().plus(properties.refreshReuseGrace()).isAfter(now);
         if (!withinGrace) {
-            log.warn("Refresh token reuse detected for user {}: revoking session family {}",
-                    token.getUser().getPseudo(), token.getFamilyId());
+            log.warn(
+                    "Refresh token reuse detected for user {}: revoking session family {}",
+                    token.getUser().getPseudo(),
+                    token.getFamilyId());
             repository.revokeFamily(token.getFamilyId(), now);
         }
     }
@@ -105,7 +115,9 @@ public class RefreshTokenService {
 
     static String hash(String rawToken) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(rawToken.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);

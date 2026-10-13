@@ -11,7 +11,8 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties("app.auth")
 public record AuthProperties(
-        @NotBlank @Size(min = 32, message = "JWT_SECRET must be at least 32 characters") String jwtSecret,
+        @NotBlank @Size(min = 32, message = "JWT_SECRET must be at least 32 characters")
+                String jwtSecret,
         @NotNull Duration accessTokenTtl,
         @NotNull Duration refreshTokenTtl,
         @NotNull Duration refreshReuseGrace,
@@ -19,5 +20,4 @@ public record AuthProperties(
         @Positive int loginMaxFailures,
         @NotNull Duration loginBlockDuration,
         @NotBlank String adminPseudo,
-        String adminPassword) {
-}
+        String adminPassword) {}

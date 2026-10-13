@@ -32,7 +32,11 @@ class PseudoGeneratorTest {
     @Test
     void animalNamesFitTheDatabaseFormat() {
         assertThat(PseudoGenerator.ANIMALS)
-                .allSatisfy(animal -> assertThat(animal + "-000000").matches(PseudoGenerator.FORMAT).hasSizeLessThanOrEqualTo(32))
+                .allSatisfy(
+                        animal ->
+                                assertThat(animal + "-000000")
+                                        .matches(PseudoGenerator.FORMAT)
+                                        .hasSizeLessThanOrEqualTo(32))
                 .doesNotHaveDuplicates();
     }
 
