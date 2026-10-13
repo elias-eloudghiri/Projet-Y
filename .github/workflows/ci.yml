@@ -57,39 +57,51 @@ jobs:
 
   images:
     name: Image ${{ matrix.app }}
-    # Only on push (not on PRs from forks, which have no write token), once checks are green.
+    # Only on push (PRs never publish), once checks are green.
     if: github.event_name == 'push'
     needs: [back, front]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    env:
+      DOCKERHUB_USERNAME: elias18
+      # Empty until the DOCKERHUB_TOKEN secret is created: images are then built but not pushed.
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     strategy:
       matrix:
         app: [back, front]
     steps:
       - uses: actions/checkout@v4
 
+      - id: registry
+        name: Check Docker Hub token
+        run: |
+          if [ -n "$DOCKERHUB_TOKEN" ]; then
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "push=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Secret DOCKERHUB_TOKEN missing: image ${{ matrix.app }} is built but not pushed."
+          fi
+
       - uses: docker/setup-buildx-action@v3
 
-      - uses: docker/login-action@v3
+      - if: steps.registry.outputs.push == 'true'
+        uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.io
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
 
-      # ghcr.io/<owner>/<repo>-<app>:<full commit SHA> (the action lowercases the name)
+      # docker.io/elias18/projet-y-<app>:<full commit SHA>
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}-${{ matrix.app }}
+          images: docker.io/${{ env.DOCKERHUB_USERNAME }}/projet-y-${{ matrix.app }}
           tags: |
             type=sha,format=long,prefix=
 
       - uses: docker/build-push-action@v6
         with:
           context: ./${{ matrix.app }}
-          push: true
+          push: ${{ steps.registry.outputs.push == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
