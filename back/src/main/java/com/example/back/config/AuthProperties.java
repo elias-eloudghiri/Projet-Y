@@ -16,6 +16,7 @@ public record AuthProperties(
         @NotNull Duration accessTokenTtl,
         @NotNull Duration refreshTokenTtl,
         @NotNull Duration refreshReuseGrace,
+        @NotNull Duration guestTokenTtl,
         boolean cookieSecure,
         @Positive int loginMaxFailures,
         @NotNull Duration loginBlockDuration,

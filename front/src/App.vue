@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import PlayerName from '@/components/PlayerName.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -14,9 +15,12 @@ async function logout() {
 <template>
   <header class="topbar">
     <RouterLink to="/" class="brand">Lecture coopérative</RouterLink>
-    <nav v-if="auth.isAuthenticated" class="nav">
-      <span class="pseudo">{{ auth.user?.pseudo }}</span>
-      <button type="button" class="btn btn-secondary" @click="logout">Se déconnecter</button>
+    <nav v-if="auth.user" class="nav">
+      <PlayerName :pseudo="auth.user.pseudo" :role="auth.user.role" />
+      <RouterLink v-if="auth.isGuest" to="/inscription">Créer un compte</RouterLink>
+      <button type="button" class="btn btn-secondary" @click="logout">
+        {{ auth.isGuest ? 'Quitter' : 'Se déconnecter' }}
+      </button>
     </nav>
     <nav v-else class="nav">
       <RouterLink to="/connexion">Se connecter</RouterLink>
@@ -51,10 +55,6 @@ async function logout() {
   display: flex;
   align-items: center;
   gap: 1rem;
-}
-
-.pseudo {
-  font-family: var(--font-mono);
-  color: var(--color-text-muted);
+  min-width: 0;
 }
 </style>

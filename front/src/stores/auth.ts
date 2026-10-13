@@ -7,7 +7,10 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<CurrentUser | null>(null)
   let loaded: Promise<void> | null = null
 
+  /** Account or guest. */
   const isAuthenticated = computed(() => user.value !== null)
+  const isGuest = computed(() => user.value?.role === 'GUEST')
+  const hasAccount = computed(() => isAuthenticated.value && !isGuest.value)
   const isAdmin = computed(() => user.value?.role === 'ADMIN')
 
   /** Restores the session from the cookies (refreshing them if needed). Runs once. */
@@ -36,6 +39,12 @@ export const useAuthStore = defineStore('auth', () => {
     return user.value
   }
 
+  /** Same guest id and pseudo as long as the 24 h guest cookie is still valid. */
+  async function playAsGuest() {
+    user.value = await authApi.guest()
+    return user.value
+  }
+
   async function logout() {
     try {
       await authApi.logout()
@@ -44,5 +53,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, isAuthenticated, isAdmin, load, register, login, logout }
+  return {
+    user,
+    isAuthenticated,
+    isGuest,
+    hasAccount,
+    isAdmin,
+    load,
+    register,
+    login,
+    playAsGuest,
+    logout,
+  }
 })

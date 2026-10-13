@@ -2,22 +2,27 @@ package com.example.back.config;
 
 import com.example.back.auth.AccessTokenService;
 import com.example.back.auth.AuthCookies;
+import com.example.back.user.Role;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import jakarta.servlet.http.Cookie;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.util.Set;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -35,7 +40,11 @@ public class SecurityConfig {
                     "/api/auth/register",
                     "/api/auth/login",
                     "/api/auth/refresh",
-                    "/api/auth/logout");
+                    "/api/auth/logout",
+                    "/api/auth/guest");
+
+    /** Roles that come with an account; guests are denied the routes reserved to them. */
+    private static final String[] ACCOUNT_ROLES = {Role.USER.name(), Role.ADMIN.name()};
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -51,7 +60,10 @@ public class SecurityConfig {
                                                 "/actuator/health/**", "/actuator/health", "/error")
                                         .permitAll()
                                         .requestMatchers("/api/admin/**")
-                                        .hasRole("ADMIN")
+                                        .hasRole(Role.ADMIN.name())
+                                        // Room creation (US-03) requires an account.
+                                        .requestMatchers(HttpMethod.POST, "/api/rooms")
+                                        .hasAnyRole(ACCOUNT_ROLES)
                                         .anyRequest()
                                         .authenticated())
                 .oauth2ResourceServer(
@@ -76,12 +88,17 @@ public class SecurityConfig {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(AuthProperties properties) {
+    JwtDecoder jwtDecoder(AuthProperties properties, Clock clock) {
         NimbusJwtDecoder decoder =
                 NimbusJwtDecoder.withSecretKey(secretKey(properties))
                         .macAlgorithm(MacAlgorithm.HS256)
                         .build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(AccessTokenService.ISSUER));
+        // Expiry checked against the application clock, the one used to issue the tokens.
+        JwtTimestampValidator timestamps = new JwtTimestampValidator();
+        timestamps.setClock(clock);
+        decoder.setJwtValidator(
+                new DelegatingOAuth2TokenValidator<>(
+                        timestamps, new JwtIssuerValidator(AccessTokenService.ISSUER)));
         return decoder;
     }
 

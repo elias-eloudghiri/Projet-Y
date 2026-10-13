@@ -4,8 +4,10 @@ import { useAuthStore } from '@/stores/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
-    requiresAuth?: boolean
-    guestOnly?: boolean
+    /** Reserved to accounts: guests are sent to the login page. */
+    requiresAccount?: boolean
+    /** Login / registration: hidden once logged in with an account (a guest may still use them). */
+    noAccountOnly?: boolean
   }
 }
 
@@ -21,19 +23,19 @@ const router = createRouter({
       path: '/inscription',
       name: 'register',
       component: () => import('../views/RegisterView.vue'),
-      meta: { guestOnly: true },
+      meta: { noAccountOnly: true },
     },
     {
       path: '/inscription/confirmation',
       name: 'register-success',
       component: () => import('../views/RegisterSuccessView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAccount: true },
     },
     {
       path: '/connexion',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
-      meta: { guestOnly: true },
+      meta: { noAccountOnly: true },
     },
   ],
 })
@@ -42,10 +44,10 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.load()
 
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+  if (to.meta.requiresAccount && !auth.hasAccount) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  if (to.meta.guestOnly && auth.isAuthenticated) {
+  if (to.meta.noAccountOnly && auth.hasAccount) {
     return { name: 'home' }
   }
 })

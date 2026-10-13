@@ -7,7 +7,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
-/** httpOnly cookies carrying the tokens. The refresh cookie is only sent to /api/auth endpoints. */
+/**
+ * httpOnly cookies carrying the tokens. The refresh cookie is only sent to /api/auth endpoints.
+ * Guests only get the access cookie, holding their single 24 h token.
+ */
 @Component
 @RequiredArgsConstructor
 public class AuthCookies {
@@ -30,6 +33,14 @@ public class AuthCookies {
                         session.refreshToken(),
                         REFRESH_PATH,
                         properties.refreshTokenTtl()));
+        return headers;
+    }
+
+    /** Guest token in the access cookie; any leftover account refresh cookie is dropped. */
+    public HttpHeaders forGuest(String token) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, cookie(ACCESS, token, "/", properties.guestTokenTtl()));
+        headers.add(HttpHeaders.SET_COOKIE, cookie(REFRESH, "", REFRESH_PATH, Duration.ZERO));
         return headers;
     }
 

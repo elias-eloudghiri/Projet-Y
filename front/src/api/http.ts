@@ -8,7 +8,13 @@ export class ApiError extends Error {
   }
 }
 
-const NO_REFRESH_PATHS = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh', '/api/auth/logout']
+const NO_REFRESH_PATHS = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/logout',
+  '/api/auth/guest',
+]
 
 let refreshing: Promise<boolean> | null = null
 

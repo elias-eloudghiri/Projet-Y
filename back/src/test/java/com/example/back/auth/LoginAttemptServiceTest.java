@@ -16,6 +16,7 @@ class LoginAttemptServiceTest {
                     Duration.ofMinutes(15),
                     Duration.ofDays(7),
                     Duration.ofSeconds(10),
+                    Duration.ofHours(24),
                     true,
                     5,
                     Duration.ofMinutes(15),

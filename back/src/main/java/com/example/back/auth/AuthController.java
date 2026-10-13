@@ -1,5 +1,6 @@
 package com.example.back.auth;
 
+import com.example.back.user.Role;
 import com.example.back.user.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -28,6 +29,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthCookies authCookies;
+    private final GuestService guestService;
 
     public record RegisterRequest(
             @NotNull @Size(min = PASSWORD_MIN_LENGTH, max = PASSWORD_MAX_LENGTH) String password) {}
@@ -75,6 +77,24 @@ public class AuthController {
                                         .headers(authCookies.forSession(session))
                                         .body(UserResponse.of(session.user())))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
+    }
+
+    /**
+     * "Jouer en invité". A visitor coming back with a still valid guest cookie keeps the same guest
+     * id and pseudo; the cookie is then left as is. Becoming a guest closes any account session
+     * still held in the refresh cookie.
+     */
+    @PostMapping("/guest")
+    public ResponseEntity<UserResponse> guest(
+            @CookieValue(name = AuthCookies.ACCESS, required = false) String accessToken,
+            @CookieValue(name = AuthCookies.REFRESH, required = false) String refreshToken) {
+        GuestService.GuestSession guest = guestService.enter(accessToken);
+        UserResponse body = new UserResponse(guest.pseudo(), Role.GUEST.name());
+        if (!guest.isNew()) {
+            return ResponseEntity.ok(body);
+        }
+        authService.logout(refreshToken);
+        return ResponseEntity.ok().headers(authCookies.forGuest(guest.token())).body(body);
     }
 
     @PostMapping("/logout")
