@@ -15,4 +15,10 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    // Same origin as the API in dev, so the SameSite=Strict auth cookies are sent.
+    proxy: {
+      '/api': 'http://localhost:8080',
+    },
+  },
 })

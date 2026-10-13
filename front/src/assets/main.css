@@ -1,35 +1,126 @@
 @import './base.css';
 
 #app {
-  max-width: 1280px;
+  max-width: 1100px;
   margin: 0 auto;
+  padding: 0 16px;
+}
+
+.card {
+  max-width: 440px;
+  margin: 3rem auto;
   padding: 2rem;
-  font-weight: normal;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
 }
 
-a,
-.green {
+.card h1 {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.card .lead {
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.field input {
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.field input:hover {
+  border-color: var(--color-border-hover);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.field .hint {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
+.btn:hover {
+  background: var(--color-accent-hover);
+  color: var(--color-accent-contrast);
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+.btn-secondary {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+  color: var(--color-text);
+  background: var(--color-border);
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.alert-error {
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
+}
+
+.alert-warning {
+  color: var(--color-warning);
+  background: var(--color-warning-surface);
+  border: 1px solid var(--color-warning);
+}
+
+.switch-link {
+  margin-top: 1.25rem;
+  text-align: center;
+  color: var(--color-text-muted);
 }

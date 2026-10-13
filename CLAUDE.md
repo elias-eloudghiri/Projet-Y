@@ -18,7 +18,7 @@ docker-compose.yml (à créer)
 | Brique | Choix |
 | --- | --- |
 | Front | Vue.js (dark mode uniquement) |
-| Back | Java <!-- préciser : Spring Boot ? version de Java ? Maven ou Gradle ? --> |
+| Back | Java 25, Spring Boot 4.1, Maven, Flyway (migrations) |
 | Temps réel | **À trancher** : Spring WebSocket (STOMP) dans le back Java, ou serveur Node + Socket.IO dédié |
 | Base de données | PostgreSQL |
 | Stockage fichiers | MinIO (API S3) : PDF des histoires, images, sons |
@@ -28,10 +28,12 @@ docker-compose.yml (à créer)
 ## Commandes
 
 <!-- À compléter une fois le projet initialisé -->
-- Lancer l'environnement : `docker compose up -d`
-- Front (dev) : `cd front && npm run dev`
-- Back (dev) : `cd back && ...`
-- Tests : ...
+- Prérequis : copier `.env.example` en `.env` et le remplir (lu par docker compose et par le back)
+- Lancer l'environnement : `docker compose up -d` (PostgreSQL)
+- Front (dev) : `cd front && npm run dev` (proxy `/api` → `localhost:8080`)
+- Back (dev) : `cd back && ./mvnw spring-boot:run` (JDK 25 requis)
+- Tests back : `cd back && ./mvnw test` (Testcontainers : Docker doit tourner)
+- Vérifs front : `cd front && npm run type-check && npm run lint`
 
 ## Règles métier tranchées
 
