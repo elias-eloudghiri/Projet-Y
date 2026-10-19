@@ -30,7 +30,7 @@ public class AdminStoryController {
             UUID id,
             String title,
             String description,
-            int playerCount,
+            int maxPlayers,
             List<String> characters,
             long pdfSize,
             Instant createdAt) {
@@ -39,7 +39,7 @@ public class AdminStoryController {
                     story.getId(),
                     story.getTitle(),
                     story.getDescription(),
-                    story.getPlayerCount(),
+                    story.getMaxPlayers(),
                     story.getCharacters().stream().map(StoryCharacter::getName).toList(),
                     story.getPdfSize(),
                     story.getCreatedAt());

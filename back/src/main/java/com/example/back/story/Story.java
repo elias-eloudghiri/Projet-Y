@@ -34,8 +34,8 @@ public class Story {
     @Column(nullable = false, length = 2000)
     private String description;
 
-    @Column(name = "player_count", nullable = false)
-    private int playerCount;
+    @Column(name = "max_players", nullable = false)
+    private int maxPlayers;
 
     @Column(name = "pdf_key", nullable = false, unique = true)
     private String pdfKey;
@@ -56,14 +56,14 @@ public class Story {
     public Story(
             String title,
             String description,
-            int playerCount,
+            int maxPlayers,
             String pdfKey,
             long pdfSize,
             UUID createdBy,
             Instant createdAt) {
         this.title = title;
         this.description = description;
-        this.playerCount = playerCount;
+        this.maxPlayers = maxPlayers;
         this.pdfKey = pdfKey;
         this.pdfSize = pdfSize;
         this.createdBy = createdBy;

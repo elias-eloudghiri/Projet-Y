@@ -17,6 +17,7 @@ async function logout() {
     <RouterLink to="/" class="brand">Lecture coopérative</RouterLink>
     <nav v-if="auth.user" class="nav">
       <PlayerName :pseudo="auth.user.pseudo" :role="auth.user.role" />
+      <RouterLink to="/histoires">Catalogue</RouterLink>
       <RouterLink v-if="auth.isAdmin" to="/admin/histoires">Administration</RouterLink>
       <RouterLink v-if="auth.isGuest" to="/inscription">Créer un compte</RouterLink>
       <button type="button" class="btn btn-secondary" @click="logout">

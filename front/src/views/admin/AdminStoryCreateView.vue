@@ -8,7 +8,7 @@ import {
   formatSize,
   MAX_CHARACTERS,
   NARRATOR_NAME,
-  PLAYER_COUNTS,
+  MAX_PLAYERS_OPTIONS,
   TITLE_MAX_LENGTH,
 } from '@/api/stories'
 import { ApiError } from '@/api/http'
@@ -17,7 +17,7 @@ const router = useRouter()
 
 const title = ref('')
 const description = ref('')
-const playerCount = ref<number>(2)
+const maxPlayers = ref<number>(2)
 /** Characters besides the narrator, who is always present and cannot be removed. */
 const characters = ref<{ id: number; name: string }[]>([{ id: 0, name: '' }])
 let nextId = 1
@@ -83,10 +83,10 @@ const errors = computed(() => {
       seen.add(name.toLowerCase())
     }
   })
-  if (characters.value.length + 1 < playerCount.value) {
+  if (characters.value.length + 1 < maxPlayers.value) {
     result.charactersCount =
-      `Il faut au moins ${playerCount.value} personnages, narrateur compris, pour ` +
-      `${playerCount.value} joueurs : chaque joueur doit en incarner au moins un.`
+      `Il faut au moins ${maxPlayers.value} personnages, narrateur compris, pour ` +
+      `${maxPlayers.value} joueurs : chaque joueur doit en incarner au moins un.`
   }
 
   if (!pdf.value) {
@@ -122,7 +122,7 @@ async function submit() {
       {
         title: title.value.trim(),
         description: description.value.trim(),
-        playerCount: playerCount.value,
+        maxPlayers: maxPlayers.value,
         characters: characters.value.map((c) => c.name.trim()),
       },
       pdf.value,
@@ -180,13 +180,13 @@ async function submit() {
       </div>
 
       <div class="field">
-        <label for="player-count">Nombre de joueurs</label>
-        <select id="player-count" v-model.number="playerCount">
-          <option v-for="count in PLAYER_COUNTS" :key="count" :value="count">
+        <label for="max-players">Nombre maximum de joueurs</label>
+        <select id="max-players" v-model.number="maxPlayers">
+          <option v-for="count in MAX_PLAYERS_OPTIONS" :key="count" :value="count">
             {{ count }} joueurs
           </option>
         </select>
-        <span class="hint">Imposé par l'histoire : la room refusera tout joueur en plus.</span>
+        <span class="hint">Le créateur d'une room choisira entre 2 joueurs et ce maximum.</span>
       </div>
 
       <fieldset class="field characters">

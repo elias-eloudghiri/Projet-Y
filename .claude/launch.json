@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "back",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "back\\mvnw.cmd -f back\\pom.xml spring-boot:run"],
+      "port": 8080
+    },
+    {
+      "name": "front",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "front", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

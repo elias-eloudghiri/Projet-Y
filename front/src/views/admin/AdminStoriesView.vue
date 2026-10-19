@@ -44,7 +44,7 @@ onMounted(async () => {
       <li v-for="story in stories" :key="story.id" class="story">
         <div class="story-head">
           <h2>{{ story.title }}</h2>
-          <span class="players">{{ story.playerCount }} joueurs</span>
+          <span class="players">jusqu'à {{ story.maxPlayers }} joueurs</span>
         </div>
         <p class="description">{{ story.description }}</p>
         <ul class="characters" aria-label="Personnages">

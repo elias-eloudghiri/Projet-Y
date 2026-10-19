@@ -7,13 +7,25 @@ export const DESCRIPTION_MAX_LENGTH = 2000
 export const CHARACTER_NAME_MAX_LENGTH = 60
 /** Characters besides the narrator. */
 export const MAX_CHARACTERS = 50
-export const PLAYER_COUNTS = [2, 3, 4] as const
+export const MIN_PLAYERS = 2
+/** Choices for the maximum number of players of a story. */
+export const MAX_PLAYERS_OPTIONS = [2, 3, 4] as const
+
+/** A story of the catalogue, as players see it (GET /api/stories). */
+export interface CatalogStory {
+  id: string
+  title: string
+  description: string
+  maxPlayers: number
+  /** Narrator first. */
+  characters: string[]
+}
 
 export interface Story {
   id: string
   title: string
   description: string
-  playerCount: number
+  maxPlayers: number
   /** Narrator first. */
   characters: string[]
   pdfSize: number
@@ -23,13 +35,18 @@ export interface Story {
 export interface NewStory {
   title: string
   description: string
-  playerCount: number
+  maxPlayers: number
   /** Characters besides the narrator, who is added by the back. */
   characters: string[]
 }
 
 export interface UploadLimits {
   pdfMaxSize: number
+}
+
+export const storiesApi = {
+  list: () => request<CatalogStory[]>('GET', '/api/stories'),
+  get: (id: string) => request<CatalogStory>('GET', `/api/stories/${encodeURIComponent(id)}`),
 }
 
 export const adminStoriesApi = {

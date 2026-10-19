@@ -132,7 +132,7 @@ class AdminStoryIntegrationTest {
                         .andExpect(status().isCreated())
                         .andExpect(jsonPath("$.title").value(title))
                         .andExpect(jsonPath("$.description").value("Une description."))
-                        .andExpect(jsonPath("$.playerCount").value(3))
+                        .andExpect(jsonPath("$.maxPlayers").value(3))
                         .andExpect(jsonPath("$.characters[0]").value("Narrateur"))
                         .andExpect(jsonPath("$.characters[1]").value("Alice"))
                         .andExpect(jsonPath("$.characters[2]").value("Bob"))
@@ -204,18 +204,18 @@ class AdminStoryIntegrationTest {
     @Test
     void missingDescriptionIsRejected() throws Exception {
         String json =
-                "{\"title\":\"" + uniqueTitle() + "\",\"playerCount\":2,\"characters\":[\"A\"]}";
+                "{\"title\":\"" + uniqueTitle() + "\",\"maxPlayers\":2,\"characters\":[\"A\"]}";
         assertRejected(json, pdf(), 400, "La description est obligatoire.");
     }
 
     @Test
-    void playerCountOutsideTwoToFourIsRejected() throws Exception {
+    void maxPlayersOutsideTwoToFourIsRejected() throws Exception {
         for (String count : new String[] {"1", "5", "null"}) {
             assertRejected(
                     storyJson(uniqueTitle(), count, "\"A\", \"B\", \"C\", \"D\", \"E\""),
                     pdf(),
                     400,
-                    "Le nombre de joueurs doit être 2, 3 ou 4.");
+                    "Le nombre maximum de joueurs doit être 2, 3 ou 4.");
         }
     }
 
@@ -346,11 +346,11 @@ class AdminStoryIntegrationTest {
         return new MockMultipartFile("pdf", "histoire.pdf", "application/pdf", PDF);
     }
 
-    private static String storyJson(String title, Object playerCount, String characters) {
+    private static String storyJson(String title, Object maxPlayers, String characters) {
         return "{\"title\":\""
                 + title
-                + "\",\"description\":\"Une description.\",\"playerCount\":"
-                + playerCount
+                + "\",\"description\":\"Une description.\",\"maxPlayers\":"
+                + maxPlayers
                 + ",\"characters\":["
                 + characters
                 + "]}";

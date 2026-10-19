@@ -35,6 +35,11 @@ async function playAsGuest() {
         Tu peux rejoindre une room avec le mot de passe que t'a donné son créateur. Ton pseudo
         invité reste valable 24 h sur ce navigateur ; pour créer ta propre room, il faut un compte.
       </p>
+      <div class="actions">
+        <RouterLink to="/histoires" class="btn">
+          {{ auth.hasAccount ? 'Choisir une histoire et créer une room' : 'Voir le catalogue' }}
+        </RouterLink>
+      </div>
     </template>
     <template v-else>
       <p class="lead">

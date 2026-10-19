@@ -4,6 +4,8 @@ import { useAuthStore } from '@/stores/auth'
 
 declare module 'vue-router' {
   interface RouteMeta {
+    /** Reserved to accounts and guests: anonymous visitors are sent to the login page. */
+    requiresAuth?: boolean
     /** Reserved to accounts: guests are sent to the login page. */
     requiresAccount?: boolean
     /** Reserved to administrators; the API checks the role as well. */
@@ -40,6 +42,25 @@ const router = createRouter({
       meta: { noAccountOnly: true },
     },
     {
+      path: '/histoires',
+      name: 'stories',
+      component: () => import('../views/StoriesView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/histoires/:storyId/room',
+      name: 'room-new',
+      component: () => import('../views/RoomCreateView.vue'),
+      meta: { requiresAccount: true },
+    },
+    {
+      // Share link. Only the creator is a participant until guests can join (US-05).
+      path: '/room/:code',
+      name: 'room',
+      component: () => import('../views/RoomView.vue'),
+      meta: { requiresAccount: true },
+    },
+    {
       path: '/admin/histoires',
       name: 'admin-stories',
       component: () => import('../views/admin/AdminStoriesView.vue'),
@@ -58,7 +79,10 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
   await auth.load()
 
-  if (to.meta.requiresAccount && !auth.hasAccount) {
+  if (
+    (to.meta.requiresAccount && !auth.hasAccount) ||
+    (to.meta.requiresAuth && !auth.isAuthenticated)
+  ) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.meta.requiresAdmin && !auth.isAdmin) {

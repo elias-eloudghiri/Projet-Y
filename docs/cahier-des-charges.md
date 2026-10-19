@@ -40,7 +40,7 @@ Seul le créateur de room doit obligatoirement avoir un compte.
 
 Règles communes :
 
-- Une room accueille 2, 3 ou 4 joueurs ; **le nombre est imposé par l'histoire**.
+- Une room accueille 2, 3 ou 4 joueurs ; **le maximum est imposé par l'histoire**, le créateur choisit le nombre de joueurs de la room entre 2 et ce maximum.
 - Chaque joueur reçoit une couleur unique ; couleur et pseudo remplacent la photo de profil.
 - Un joueur peut incarner plusieurs personnages ; un personnage a toujours exactement un joueur.
 - Le narrateur est un personnage comme les autres.
@@ -75,13 +75,13 @@ Chaque fonctionnalité est une user story ; ses critères d'acceptation servent 
 - En cas de déconnexion, le joueur dispose d'un délai de retour [durée à définir]. Passé ce délai, ses personnages sont réattribués s'il reste assez de joueurs ; sinon la room est détruite.
 
 **US-03** · En tant qu'administrateur, je veux ajouter une histoire au catalogue.
-- L'administrateur importe le PDF de l'histoire et ses ressources (images, sons).
+- L'administrateur importe le PDF de l'histoire et ses ressources (images, sons), et saisit le **nombre maximum de joueurs** (2 à 4).
 - L'import échoue avec un message explicite si le PDF ne respecte pas la convention (voir section 8).
 
 ### 5.2 Rooms (lot 1)
 
 **US-04** · En tant que créateur, je veux créer une room à partir d'une histoire du catalogue, afin d'y inviter mes joueurs.
-- Le créateur choisit l'histoire et un mot de passe ; le nombre de joueurs est celui défini par l'histoire.
+- Le créateur choisit l'histoire, un mot de passe et le nombre de joueurs de la room, entre 2 et le maximum de l'histoire.
 - La room refuse tout joueur au-delà du nombre prévu.
 
 **US-05** · En tant que participant, je veux rejoindre une room avec son mot de passe.
@@ -203,7 +203,7 @@ Chaque lot est validé par le client sur la base des critères d'acceptation de 
 | Audio | Joué chez tous en même temps |
 | Attribution | Créateur seul |
 | Déconnexion | Délai de retour, puis réattribution ou destruction de la room |
-| Nombre de joueurs | Imposé par l'histoire |
+| Nombre de joueurs | Maximum imposé par l'histoire ; le créateur choisit entre 2 et ce maximum |
 | Catalogue | Alimenté par l'admin ; droits sur les textes : [à confirmer] |
 | Publicité | Régie et affichage mobile : [ouvert] |
 | Temps réel | Spring WebSocket ou Node/Socket.IO : [ouvert] |

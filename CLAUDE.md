@@ -37,7 +37,7 @@ docker-compose.yml (à créer)
 
 ## Règles métier tranchées
 
-- Rooms de 2, 3 ou 4 joueurs ; **le nombre est imposé par l'histoire**, pas choisi par le créateur.
+- Rooms de 2, 3 ou 4 joueurs ; **le maximum est imposé par l'histoire**, le créateur choisit le nombre de joueurs entre 2 et ce maximum.
 - La room refuse tout joueur au-delà du nombre prévu.
 - Seul le **créateur de room** doit avoir un compte ; les invités rejoignent avec un pseudo.
 - Un invité ne peut pas créer de room.

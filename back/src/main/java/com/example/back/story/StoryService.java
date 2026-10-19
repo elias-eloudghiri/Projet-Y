@@ -48,7 +48,7 @@ public class StoryService {
      * @param characters the characters besides the narrator, who is always added first
      */
     public record NewStory(
-            String title, String description, Integer playerCount, List<String> characters) {}
+            String title, String description, Integer maxPlayers, List<String> characters) {}
 
     /**
      * Validates the story, uploads its PDF then saves its metadata. The PDF is removed again if the
@@ -57,10 +57,10 @@ public class StoryService {
     public Story create(NewStory request, MultipartFile pdf, UUID adminId) {
         String title = strip(request.title());
         String description = strip(request.description());
-        int playerCount = validatePlayerCount(request.playerCount());
+        int maxPlayers = validateMaxPlayers(request.maxPlayers());
         validateTitle(title);
         validateDescription(description);
-        List<String> characters = validateCharacters(request.characters(), playerCount);
+        List<String> characters = validateCharacters(request.characters(), maxPlayers);
         validatePdf(pdf);
         if (repository.existsByTitleIgnoreCase(title)) {
             throw titleTaken();
@@ -70,7 +70,7 @@ public class StoryService {
                 new Story(
                         title,
                         description,
-                        playerCount,
+                        maxPlayers,
                         "stories/" + UUID.randomUUID() + "/story.pdf",
                         pdf.getSize(),
                         adminId,
@@ -97,11 +97,20 @@ public class StoryService {
         return repository.findAllByOrderByCreatedAtDesc();
     }
 
-    private static int validatePlayerCount(Integer playerCount) {
-        if (playerCount == null || playerCount < MIN_PLAYERS || playerCount > MAX_PLAYERS) {
-            throw StoryValidationException.invalid("Le nombre de joueurs doit être 2, 3 ou 4.");
+    /** The story with its characters, or a 404 error with a clear message. */
+    @Transactional(readOnly = true)
+    public Story get(UUID id) {
+        return repository
+                .findWithCharactersById(id)
+                .orElseThrow(StoryValidationException::notFound);
+    }
+
+    private static int validateMaxPlayers(Integer maxPlayers) {
+        if (maxPlayers == null || maxPlayers < MIN_PLAYERS || maxPlayers > MAX_PLAYERS) {
+            throw StoryValidationException.invalid(
+                    "Le nombre maximum de joueurs doit être 2, 3 ou 4.");
         }
-        return playerCount;
+        return maxPlayers;
     }
 
     private static void validateTitle(String title) {
@@ -126,7 +135,7 @@ public class StoryService {
         }
     }
 
-    private static List<String> validateCharacters(List<String> input, int playerCount) {
+    private static List<String> validateCharacters(List<String> input, int maxPlayers) {
         List<String> names = input == null ? List.of() : input;
         if (names.size() > MAX_CHARACTERS) {
             throw StoryValidationException.invalid(
@@ -163,12 +172,12 @@ public class StoryService {
             result.add(name);
         }
         // Each player must embody at least one character.
-        if (result.size() + 1 < playerCount) {
+        if (result.size() + 1 < maxPlayers) {
             throw StoryValidationException.invalid(
                     "Il faut au moins "
-                            + playerCount
+                            + maxPlayers
                             + " personnages, narrateur compris, pour "
-                            + playerCount
+                            + maxPlayers
                             + " joueurs : chaque joueur doit en incarner au moins un.");
         }
         return result;
