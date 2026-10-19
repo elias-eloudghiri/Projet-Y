@@ -59,9 +59,10 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 "/actuator/health/**", "/actuator/health", "/error")
                                         .permitAll()
+                                        // Story catalogue (US-03) and any other admin route.
                                         .requestMatchers("/api/admin/**")
                                         .hasRole(Role.ADMIN.name())
-                                        // Room creation (US-03) requires an account.
+                                        // Room creation (US-04) requires an account.
                                         .requestMatchers(HttpMethod.POST, "/api/rooms")
                                         .hasAnyRole(ACCOUNT_ROLES)
                                         .anyRequest()

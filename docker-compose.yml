@@ -16,5 +16,20 @@ services:
       timeout: 3s
       retries: 10
 
+  # S3-compatible object storage (story PDFs). The back creates its bucket at startup.
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.47
+    restart: unless-stopped
+    command: server -s3 -dir=/data
+    environment:
+      # Admin identity of the S3 API; anonymous access is denied.
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set in .env}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY must be set in .env}
+    ports:
+      - "${S3_PORT:-8333}:8333"
+    volumes:
+      - seaweedfs-data:/data
+
 volumes:
   postgres-data:
+  seaweedfs-data:

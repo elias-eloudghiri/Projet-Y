@@ -74,60 +74,60 @@ Chaque fonctionnalité est une user story ; ses critères d'acceptation servent 
 - Un invité ne peut pas créer de room.
 - En cas de déconnexion, le joueur dispose d'un délai de retour [durée à définir]. Passé ce délai, ses personnages sont réattribués s'il reste assez de joueurs ; sinon la room est détruite.
 
-**US-02b** · En tant qu'administrateur, je veux ajouter une histoire au catalogue.
+**US-03** · En tant qu'administrateur, je veux ajouter une histoire au catalogue.
 - L'administrateur importe le PDF de l'histoire et ses ressources (images, sons).
 - L'import échoue avec un message explicite si le PDF ne respecte pas la convention (voir section 8).
 
 ### 5.2 Rooms (lot 1)
 
-**US-03** · En tant que créateur, je veux créer une room à partir d'une histoire du catalogue, afin d'y inviter mes joueurs.
+**US-04** · En tant que créateur, je veux créer une room à partir d'une histoire du catalogue, afin d'y inviter mes joueurs.
 - Le créateur choisit l'histoire et un mot de passe ; le nombre de joueurs est celui défini par l'histoire.
 - La room refuse tout joueur au-delà du nombre prévu.
 
-**US-04** · En tant que participant, je veux rejoindre une room avec son mot de passe.
+**US-05** · En tant que participant, je veux rejoindre une room avec son mot de passe.
 - Un mot de passe erroné est refusé avec un message clair.
 - À l'entrée, le joueur reçoit une couleur libre.
 
 ### 5.3 Tableau d'attribution (lot 1)
 
-**US-05** · En tant que joueur, je veux voir avant la lecture un tableau des personnages de chaque joueur ; en tant que créateur, je veux le modifier par drag and drop.
+**US-06** · En tant que joueur, je veux voir avant la lecture un tableau des personnages de chaque joueur ; en tant que créateur, je veux le modifier par drag and drop.
 - Chaque joueur apparaît avec sa couleur, son pseudo et ses personnages, narrateur compris.
 - Seul le créateur peut déplacer des personnages.
 - Un déplacement est visible chez tous les joueurs en moins d'une seconde. [seuil à valider]
 
-**US-06** · En tant que créateur, je veux modifier l'attribution en cours de lecture, sans relancer la partie.
+**US-07** · En tant que créateur, je veux modifier l'attribution en cours de lecture, sans relancer la partie.
 - La couleur du nom du personnage change immédiatement dans le texte, chez tous les joueurs.
 
 ### 5.4 Lecture (lot 1)
 
-**US-07** · En tant que joueur, je veux voir le nom de chaque personnage dans la couleur de son joueur.
+**US-08** · En tant que joueur, je veux voir le nom de chaque personnage dans la couleur de son joueur.
 - Seul le nom est coloré ; la réplique garde la couleur de texte normale.
 
-**US-08** · En tant que joueur, je veux savoir qui doit lire.
+**US-09** · En tant que joueur, je veux savoir qui doit lire.
 - Un indicateur en haut de l'écran, identique pour tous, affiche la couleur et le pseudo du lecteur en cours.
 - Le créateur fait avancer la lecture ; la position est synchronisée chez tous. [interaction à préciser : bouton, clavier…]
 
-**US-09** · En tant que joueur, je veux voir les images de l'histoire et pouvoir les passer en plein écran.
+**US-10** · En tant que joueur, je veux voir les images de l'histoire et pouvoir les passer en plein écran.
 - Les images s'affichent telles quelles dans le fil du texte.
 
-**US-09b** · En tant que créateur, je veux cliquer sur une image pour l'afficher en plein écran chez tous les joueurs.
+**US-10b** · En tant que créateur, je veux cliquer sur une image pour l'afficher en plein écran chez tous les joueurs.
 
 ### 5.5 Audio (lot 2)
 
-**US-10** · En tant que joueur, je veux que musiques et effets sonores se lancent quand la lecture atteint une commande dans le texte.
+**US-11** · En tant que joueur, je veux que musiques et effets sonores se lancent quand la lecture atteint une commande dans le texte.
 - Les sons sont joués chez tous les joueurs en même temps.
 - Syntaxe des commandes : [à définir, compatible avec la convention PDF]
 - La piste musicale est prioritaire sur les effets sonores. [à préciser : ce que « prioritaire » implique]
 
-**US-11** · En tant que joueur, je veux activer un son de fin de réplique depuis le panneau de commande audio.
+**US-12** · En tant que joueur, je veux activer un son de fin de réplique depuis le panneau de commande audio.
 - Le bouton est grisé si l'histoire ne contient pas de son de fin de réplique.
 
-**US-12** · En tant que joueur, je veux une soundboard activable sur l'écran principal.
+**US-13** · En tant que joueur, je veux une soundboard activable sur l'écran principal.
 - Les sons sont entendus par tous les joueurs.
 
 ### 5.6 Publicité (lot 3)
 
-**US-13** · En tant que client, je veux afficher de la publicité dans un encart à gauche de l'écran.
+**US-14** · En tant que client, je veux afficher de la publicité dans un encart à gauche de l'écran.
 - Régie : [à définir]
 - Aucun cookie publicitaire n'est déposé avant le consentement de l'utilisateur.
 - Affichage sur mobile : [à définir]
@@ -153,7 +153,7 @@ Chaque fonctionnalité est une user story ; ses critères d'acceptation servent 
 | Temps réel | [à trancher] Spring WebSocket (STOMP) dans le back Java, ou Socket.IO sur un serveur Node dédié | Les plateformes serverless gèrent mal les connexions persistantes |
 | Base de données | PostgreSQL | Comptes, rooms, histoires, attributions |
 | Authentification | JWT : jeton d'accès court + jeton de rafraîchissement | Jetons en cookie httpOnly |
-| Fichiers | MinIO (compatible S3) | Histoires, images, sons |
+| Fichiers | Stockage objet compatible S3 (SeaweedFS en dev, fournisseur S3 au choix en prod) | Histoires (PDF, images incluses), sons |
 | Conteneurisation | Docker / docker-compose | |
 | Hébergement | [à choisir : VPS ou autre] | Hébergement et nom de domaine à la charge de [client ?] |
 

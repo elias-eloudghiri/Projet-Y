@@ -30,6 +30,10 @@ export function refreshSession(): Promise<boolean> {
 }
 
 async function send(method: string, path: string, body?: unknown): Promise<Response> {
+  // FormData (file upload): the browser sets the multipart Content-Type with its boundary.
+  if (body instanceof FormData) {
+    return fetch(path, { method, credentials: 'same-origin', body })
+  }
   return fetch(path, {
     method,
     credentials: 'same-origin',

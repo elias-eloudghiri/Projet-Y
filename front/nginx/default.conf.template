@@ -7,6 +7,8 @@ server {
 
     # Same origin for the SPA and the API: the SameSite=Strict auth cookies need it.
     location /api/ {
+        # Story PDF uploads: keep above STORY_PDF_MAX_SIZE of the back.
+        client_max_body_size ${MAX_UPLOAD_SIZE};
         proxy_pass ${BACKEND_URL};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

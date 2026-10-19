@@ -18,5 +18,7 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 # Address of the back container, as seen from this container.
 ENV BACKEND_URL=http://back:8080
+# Request body limit of /api, above the back STORY_PDF_MAX_SIZE (20MB by default).
+ENV MAX_UPLOAD_SIZE=25m
 
 EXPOSE 80

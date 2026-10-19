@@ -21,7 +21,7 @@ docker-compose.yml (à créer)
 | Back | Java 25, Spring Boot 4.1, Maven, Flyway (migrations) |
 | Temps réel | **À trancher** : Spring WebSocket (STOMP) dans le back Java, ou serveur Node + Socket.IO dédié |
 | Base de données | PostgreSQL |
-| Stockage fichiers | MinIO (API S3) : PDF des histoires, images, sons |
+| Stockage fichiers | Stockage objet compatible S3, via AWS SDK v2 : SeaweedFS en dev/tests, tout fournisseur S3 en prod (MinIO écarté : plus maintenu). PDF des histoires (images incluses), sons |
 | Auth | JWT : jeton d'accès court + refresh token, en cookies httpOnly |
 | Conteneurs | Docker + docker-compose |
 
@@ -29,7 +29,7 @@ docker-compose.yml (à créer)
 
 <!-- À compléter une fois le projet initialisé -->
 - Prérequis : copier `.env.example` en `.env` et le remplir (lu par docker compose et par le back)
-- Lancer l'environnement : `docker compose up -d` (PostgreSQL)
+- Lancer l'environnement : `docker compose up -d` (PostgreSQL + SeaweedFS)
 - Front (dev) : `cd front && npm run dev` (proxy `/api` → `localhost:8080`)
 - Back (dev) : `cd back && ./mvnw spring-boot:run` (JDK 25 requis)
 - Tests back : `cd back && ./mvnw test` (Testcontainers : Docker doit tourner)
