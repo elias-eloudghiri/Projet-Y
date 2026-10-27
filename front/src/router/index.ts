@@ -54,11 +54,10 @@ const router = createRouter({
       meta: { requiresAccount: true },
     },
     {
-      // Share link. Only the creator is a participant until guests can join (US-05).
+      // Share link. Open to everyone: the view offers login or guest access, then the password.
       path: '/room/:code',
       name: 'room',
       component: () => import('../views/RoomView.vue'),
-      meta: { requiresAccount: true },
     },
     {
       path: '/admin/histoires',

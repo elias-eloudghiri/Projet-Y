@@ -10,7 +10,16 @@ export interface RoomParticipant {
   pseudo: string
   /** Given by the back from its palette. */
   color: string
+  isGuest: boolean
   isCreator: boolean
+  /** The current player. */
+  isMe: boolean
+}
+
+export interface JoinResult {
+  /** The current player's participation. */
+  participant: RoomParticipant
+  participants: RoomParticipant[]
 }
 
 export interface Room {
@@ -32,4 +41,10 @@ export interface NewRoom {
 export const roomsApi = {
   create: (room: NewRoom) => request<Room>('POST', '/api/rooms', room),
   get: (code: string) => request<Room>('GET', `/api/rooms/${encodeURIComponent(code)}`),
+  /** 403 ROOM_FORBIDDEN when the current player is not in the room yet. */
+  participants: (code: string) =>
+    request<RoomParticipant[]>('GET', `/api/rooms/${encodeURIComponent(code)}/participants`),
+  /** Idempotent: a participant gets back their seat and colour. */
+  join: (code: string, password: string) =>
+    request<JoinResult>('POST', `/api/rooms/${encodeURIComponent(code)}/join`, { password }),
 }

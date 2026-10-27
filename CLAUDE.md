@@ -19,7 +19,7 @@ docker-compose.yml (à créer)
 | --- | --- |
 | Front | Vue.js (dark mode uniquement) |
 | Back | Java 25, Spring Boot 4.1, Maven, Flyway (migrations) |
-| Temps réel | **À trancher** : Spring WebSocket (STOMP) dans le back Java, ou serveur Node + Socket.IO dédié |
+| Temps réel | **Spring WebSocket (STOMP)** dans le back Java (pas de serveur Node) : endpoint `/ws`, handshake authentifié par le cookie JWT, topics `/topic/rooms/{code}` réservés aux participants, clients en lecture seule, diffusion après commit. Broker simple en mémoire (une instance) ; relais RabbitMQ/ActiveMQ le jour où il y aura plusieurs instances. Front : `@stomp/stompjs` |
 | Base de données | PostgreSQL |
 | Stockage fichiers | Stockage objet compatible S3, via AWS SDK v2 : SeaweedFS en dev/tests, tout fournisseur S3 en prod (MinIO écarté : plus maintenu). PDF des histoires (images incluses), sons |
 | Auth | JWT : jeton d'accès court + refresh token, en cookies httpOnly |

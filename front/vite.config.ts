@@ -19,6 +19,8 @@ export default defineConfig({
     // Same origin as the API in dev, so the SameSite=Strict auth cookies are sent.
     proxy: {
       '/api': 'http://localhost:8080',
+      // STOMP over WebSocket (real time).
+      '/ws': { target: 'ws://localhost:8080', ws: true },
     },
   },
 })

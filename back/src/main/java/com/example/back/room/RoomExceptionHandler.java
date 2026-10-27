@@ -1,6 +1,7 @@
 package com.example.back.room;
 
 import com.example.back.auth.AuthExceptionHandler.ApiError;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -11,7 +12,11 @@ public class RoomExceptionHandler {
 
     @ExceptionHandler(RoomException.class)
     ResponseEntity<ApiError> refused(RoomException e) {
-        return ResponseEntity.status(e.status()).body(new ApiError(e.code(), e.getMessage()));
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(e.status());
+        if (e.retryAfter() != null) {
+            response.header(HttpHeaders.RETRY_AFTER, String.valueOf(e.retryAfter().toSeconds()));
+        }
+        return response.body(new ApiError(e.code(), e.getMessage()));
     }
 
     /** Malformed JSON, or a value of the wrong type (e.g. a text as player count). */

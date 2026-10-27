@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -90,9 +91,42 @@ public class Room {
                         this, userId, null, pseudo, RoomColor.PALETTE.getFirst(), true, createdAt));
     }
 
-    /** Whether an access token identity (user id, or guest id for guests) is in the room. */
-    public boolean hasParticipant(UUID subject, boolean guest) {
+    /**
+     * Adds a player with the first colour of the palette not taken in the room. Capacity and status
+     * are checked by the caller, which holds a lock on the room.
+     */
+    public RoomParticipant addPlayer(UUID subject, boolean guest, String pseudo, Instant joinedAt) {
+        List<String> taken = participants.stream().map(RoomParticipant::getColor).toList();
+        String color =
+                RoomColor.PALETTE.stream()
+                        .filter(c -> !taken.contains(c))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No colour left in room"));
+        RoomParticipant participant =
+                new RoomParticipant(
+                        this,
+                        guest ? null : subject,
+                        guest ? subject : null,
+                        pseudo,
+                        color,
+                        false,
+                        joinedAt);
+        participants.add(participant);
+        return participant;
+    }
+
+    public boolean isFull() {
+        return participants.size() >= playerCount;
+    }
+
+    /** The participant of an access token identity (user id, or guest id for guests). */
+    public Optional<RoomParticipant> findParticipant(UUID subject, boolean guest) {
         return participants.stream()
-                .anyMatch(p -> subject.equals(guest ? p.getGuestId() : p.getUserId()));
+                .filter(p -> subject.equals(guest ? p.getGuestId() : p.getUserId()))
+                .findFirst();
+    }
+
+    public boolean hasParticipant(UUID subject, boolean guest) {
+        return findParticipant(subject, guest).isPresent();
     }
 }

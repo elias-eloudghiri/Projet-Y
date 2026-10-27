@@ -1,30 +1,150 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { roomsApi, type Room } from '@/api/rooms'
+import { ROOM_PASSWORD_MAX_LENGTH, roomsApi, type Room, type RoomParticipant } from '@/api/rooms'
 import { ApiError } from '@/api/http'
+import { followRoom } from '@/api/realtime'
+import { useAuthStore } from '@/stores/auth'
 import PlayerName from '@/components/PlayerName.vue'
 
-/** Waiting room: everything is reloaded from the API, so the page survives a refresh. */
+/**
+ * Share link and waiting room. Anonymous visitors log in or play as guests first; non-participants
+ * give the room password. Everything is reloaded from the API, so the page survives a refresh.
+ */
 const route = useRoute()
+const auth = useAuthStore()
+const code = String(route.params.code)
 
+type Step = 'loading' | 'identify' | 'password' | 'room' | 'error'
+const step = ref<Step>('loading')
 const room = ref<Room | null>(null)
-const loading = ref(true)
 const error = ref<string | null>(null)
+
+const guestError = ref<string | null>(null)
+const joiningAsGuest = ref(false)
+
+const password = ref('')
+const passwordEl = ref<HTMLInputElement | null>(null)
+const passwordError = ref<string | null>(null)
+const submitting = ref(false)
 
 const linkEl = ref<HTMLElement | null>(null)
 const copyState = ref<'idle' | 'copied' | 'manual'>('idle')
 
-onMounted(async () => {
-  try {
-    room.value = await roomsApi.get(String(route.params.code))
-  } catch (e) {
-    error.value =
-      e instanceof ApiError ? e.message : 'Impossible de charger la room. Réessaie plus tard.'
-  } finally {
-    loading.value = false
+/** Live updates of the waiting room, while the page is open. */
+let stopFollowing: (() => void) | null = null
+
+onMounted(enter)
+onUnmounted(() => stopFollowing?.())
+
+function fail(e: unknown) {
+  error.value =
+    e instanceof ApiError ? e.message : 'Impossible de charger la room. Réessaie plus tard.'
+  step.value = 'error'
+}
+
+/** Participants get in directly; the others are asked for the password. */
+async function enter() {
+  if (!auth.isAuthenticated) {
+    step.value = 'identify'
+    return
   }
-})
+  try {
+    await roomsApi.participants(code)
+    await loadRoom()
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 403) {
+      step.value = 'password'
+      await focusPassword()
+    } else if (e instanceof ApiError && e.status === 401) {
+      // Session gone (e.g. expired guest token): identify again.
+      auth.user = null
+      step.value = 'identify'
+    } else {
+      fail(e)
+    }
+  }
+}
+
+async function loadRoom() {
+  room.value = await roomsApi.get(code)
+  step.value = 'room'
+  stopFollowing ??= followRoom(room.value.code, {
+    onEvent: (event) => {
+      if (event.type === 'PARTICIPANTS') {
+        applyParticipants(event.participants)
+      }
+    },
+    // Joins missed while disconnected: reload the list (and who the current player is).
+    onConnect: () => {
+      roomsApi
+        .participants(code)
+        .then(applyParticipants)
+        .catch(() => undefined)
+    },
+  })
+}
+
+/** Live list: the current player is recognized by its colour, unique in the room. */
+function applyParticipants(participants: Omit<RoomParticipant, 'isMe'>[]) {
+  if (!room.value) {
+    return
+  }
+  const myColor = room.value.participants.find((p) => p.isMe)?.color
+  room.value.participants = participants.map((p) => ({
+    ...p,
+    isMe: 'isMe' in p ? Boolean(p.isMe) : p.color === myColor,
+  }))
+}
+
+async function playAsGuest() {
+  guestError.value = null
+  joiningAsGuest.value = true
+  try {
+    await auth.playAsGuest()
+    await enter()
+  } catch (e) {
+    guestError.value =
+      e instanceof ApiError ? e.message : 'Impossible de jouer en invité. Réessaie plus tard.'
+  } finally {
+    joiningAsGuest.value = false
+  }
+}
+
+async function focusPassword() {
+  await nextTick()
+  passwordEl.value?.focus()
+}
+
+async function join() {
+  if (!password.value) {
+    passwordError.value = 'Saisis le mot de passe de la room.'
+    await focusPassword()
+    return
+  }
+  passwordError.value = null
+  submitting.value = true
+  try {
+    await roomsApi.join(code, password.value)
+  } catch (e) {
+    submitting.value = false
+    if (e instanceof ApiError && e.status === 404) {
+      fail(e)
+      return
+    }
+    passwordError.value =
+      e instanceof ApiError ? e.message : 'Impossible de rejoindre la room. Réessaie plus tard.'
+    await focusPassword()
+    return
+  }
+  try {
+    await loadRoom()
+  } catch (e) {
+    fail(e)
+  } finally {
+    submitting.value = false
+  }
+}
 
 async function copyLink() {
   const url = room.value?.shareUrl ?? ''
@@ -48,14 +168,69 @@ async function copyLink() {
 
 <template>
   <section class="card card-wide">
-    <p v-if="loading" class="muted">Chargement…</p>
-    <template v-else-if="error">
+    <p v-if="step === 'loading'" class="muted">Chargement…</p>
+    <template v-else-if="step === 'error'">
       <h1>Room introuvable</h1>
       <p class="alert alert-error" role="alert">{{ error }}</p>
-      <RouterLink :to="{ name: 'stories' }" class="back">Retour au catalogue</RouterLink>
+      <RouterLink :to="{ name: 'home' }" class="back">Retour à l'accueil</RouterLink>
     </template>
 
-    <template v-else-if="room">
+    <template v-else-if="step === 'identify'">
+      <p class="eyebrow">Rejoindre une room</p>
+      <h1>Qui es-tu ?</h1>
+      <p class="lead">
+        Connecte-toi à ton compte ou joue en invité, puis saisis le mot de passe de la room.
+      </p>
+      <div class="choices">
+        <RouterLink :to="{ name: 'login', query: { redirect: route.fullPath } }" class="btn">
+          Se connecter
+        </RouterLink>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          :disabled="joiningAsGuest"
+          @click="playAsGuest"
+        >
+          {{ joiningAsGuest ? 'Connexion…' : 'Jouer en invité' }}
+        </button>
+      </div>
+      <p v-if="guestError" class="alert alert-error guest-error" role="alert">{{ guestError }}</p>
+    </template>
+
+    <template v-else-if="step === 'password'">
+      <p class="eyebrow">Rejoindre une room</p>
+      <h1>
+        Room <span class="code-value">{{ code.toUpperCase() }}</span>
+      </h1>
+      <p class="lead">Saisis le mot de passe que t'a donné le créateur de la room.</p>
+      <form class="form" novalidate @submit.prevent="join">
+        <div class="field">
+          <label for="room-password">Mot de passe de la room</label>
+          <input
+            id="room-password"
+            ref="passwordEl"
+            v-model="password"
+            type="password"
+            autocomplete="off"
+            :maxlength="ROOM_PASSWORD_MAX_LENGTH"
+            :aria-invalid="!!passwordError"
+            aria-describedby="room-password-error"
+            required
+          />
+          <span v-if="passwordError" id="room-password-error" class="field-error" role="alert">{{
+            passwordError
+          }}</span>
+        </div>
+        <button type="submit" class="btn" :disabled="submitting">
+          {{ submitting ? 'Connexion…' : 'Rejoindre' }}
+        </button>
+      </form>
+      <p v-if="auth.user" class="hint as">
+        Tu rejoindras en tant que <PlayerName :pseudo="auth.user.pseudo" :role="auth.user.role" />
+      </p>
+    </template>
+
+    <template v-else-if="step === 'room' && room">
       <p class="eyebrow">Salle d'attente</p>
       <h1>{{ room.story.title }}</h1>
       <p class="code">
@@ -82,8 +257,18 @@ async function copyLink() {
           <span class="count">{{ room.participants.length }} / {{ room.playerCount }} joueurs</span>
         </div>
         <ul class="participants">
-          <li v-for="participant in room.participants" :key="participant.pseudo">
-            <PlayerName :pseudo="participant.pseudo" :color="participant.color" />
+          <li
+            v-for="participant in room.participants"
+            :key="participant.pseudo"
+            :class="{ me: participant.isMe }"
+            :aria-current="participant.isMe ? 'true' : undefined"
+          >
+            <PlayerName
+              :pseudo="participant.pseudo"
+              :color="participant.color"
+              :role="participant.isGuest ? 'GUEST' : undefined"
+            />
+            <span v-if="participant.isMe" class="you">toi</span>
             <span v-if="participant.isCreator" class="role">créateur</span>
           </li>
         </ul>
@@ -204,9 +389,34 @@ async function copyLink() {
   border-radius: 8px;
 }
 
+.participants li.me {
+  border-color: var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.you {
+  color: var(--color-heading);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .role {
   margin-left: auto;
   color: var(--color-text-muted);
   font-size: 0.85rem;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.guest-error {
+  margin-top: 1rem;
+}
+
+.as {
+  margin-top: 1.25rem;
 }
 </style>

@@ -150,7 +150,7 @@ Chaque fonctionnalité est une user story ; ses critères d'acceptation servent 
 | --- | --- | --- |
 | Front-end | Vue.js | |
 | Back-end | Java | |
-| Temps réel | [à trancher] Spring WebSocket (STOMP) dans le back Java, ou Socket.IO sur un serveur Node dédié | Les plateformes serverless gèrent mal les connexions persistantes |
+| Temps réel | Spring WebSocket (STOMP) dans le back Java (tranché) | Les plateformes serverless gèrent mal les connexions persistantes ; même authentification et mêmes données que l'API, un service de moins |
 | Base de données | PostgreSQL | Comptes, rooms, histoires, attributions |
 | Authentification | JWT : jeton d'accès court + jeton de rafraîchissement | Jetons en cookie httpOnly |
 | Fichiers | Stockage objet compatible S3 (SeaweedFS en dev, fournisseur S3 au choix en prod) | Histoires (PDF, images incluses), sons |
@@ -206,4 +206,4 @@ Chaque lot est validé par le client sur la base des critères d'acceptation de 
 | Nombre de joueurs | Maximum imposé par l'histoire ; le créateur choisit entre 2 et ce maximum |
 | Catalogue | Alimenté par l'admin ; droits sur les textes : [à confirmer] |
 | Publicité | Régie et affichage mobile : [ouvert] |
-| Temps réel | Spring WebSocket ou Node/Socket.IO : [ouvert] |
+| Temps réel | Spring WebSocket (STOMP) : tranché |

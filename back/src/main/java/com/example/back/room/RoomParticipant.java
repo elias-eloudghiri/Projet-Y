@@ -48,6 +48,10 @@ public class RoomParticipant {
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;
 
+    public boolean isGuest() {
+        return guestId != null;
+    }
+
     RoomParticipant(
             Room room,
             UUID userId,
