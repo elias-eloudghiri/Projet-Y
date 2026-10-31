@@ -1,11 +1,11 @@
 import { Client } from '@stomp/stompjs'
 import { authApi } from './auth'
-import type { RoomParticipant } from './rooms'
+import type { RoomState } from './rooms'
 
-/** Same for every player: no `isMe`, the front recognizes its player by its colour. */
+/** Same for every player: the front recognizes its player by `RoomBoard.meId`. */
 export type RoomEvent = {
-  type: 'PARTICIPANTS'
-  participants: Omit<RoomParticipant, 'isMe'>[]
+  type: 'STATE'
+  state: RoomState
 }
 
 export interface RoomLiveHandlers {

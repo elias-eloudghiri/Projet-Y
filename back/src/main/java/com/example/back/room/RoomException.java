@@ -53,6 +53,29 @@ public class RoomException extends RuntimeException {
                 "La lecture a déjà commencé dans cette room.");
     }
 
+    static RoomException notCreator() {
+        return new RoomException(
+                HttpStatus.FORBIDDEN,
+                "ROOM_NOT_CREATOR",
+                "Seul le créateur de la room peut faire ça.");
+    }
+
+    static RoomException characterNotFound() {
+        return new RoomException(
+                HttpStatus.NOT_FOUND,
+                "CHARACTER_NOT_FOUND",
+                "Ce personnage ne fait pas partie de cette histoire.");
+    }
+
+    static RoomException playerNotFound() {
+        return new RoomException(
+                HttpStatus.BAD_REQUEST, "PLAYER_NOT_FOUND", "Ce joueur n'est pas dans la room.");
+    }
+
+    static RoomException notReady(String message) {
+        return new RoomException(HttpStatus.CONFLICT, "ROOM_NOT_READY", message);
+    }
+
     static RoomException tooManyAttempts(Duration retryAfter) {
         // Rounded up: retrying after the announced delay must succeed.
         long seconds = Math.max(1, (retryAfter.toMillis() + 999) / 1000);

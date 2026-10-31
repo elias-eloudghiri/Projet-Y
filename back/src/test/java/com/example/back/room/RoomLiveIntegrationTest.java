@@ -2,7 +2,9 @@ package com.example.back.room;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.back.MutableClock;
@@ -22,6 +24,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +47,10 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
-/** Live waiting room: a join is pushed over STOMP to the players already in the room. */
+/**
+ * Live room state: joins, moves, presence and start are pushed over STOMP to the players of the
+ * room, and to them only.
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -89,10 +95,10 @@ class RoomLiveIntegrationTest {
 
         join(code, PASSWORD, guest());
 
-        String event = events.poll(TIMEOUT_S, TimeUnit.SECONDS);
-        assertThat(event).isNotNull();
-        assertThat((String) JsonPath.read(event, "$.type")).isEqualTo("PARTICIPANTS");
-        List<Map<String, Object>> participants = JsonPath.read(event, "$.participants");
+        String event =
+                awaitState(events, e -> JsonPath.<Integer>read(e, "$.state.players.length()") == 2);
+        assertThat((String) JsonPath.read(event, "$.type")).isEqualTo("STATE");
+        List<Map<String, Object>> participants = JsonPath.read(event, "$.state.players");
         assertThat(participants).hasSize(2);
         assertThat(participants.get(0))
                 .containsEntry("color", RoomColor.BLUE.hex())
@@ -115,10 +121,70 @@ class RoomLiveIntegrationTest {
         Live live = connect(creator);
         BlockingQueue<String> events = subscribed(live, RoomBroadcaster.topic(code));
 
+        long version = version(code, creator);
+
         join(code, "wrong-password", guest());
         join(code, PASSWORD, guest);
 
-        assertThat(events.poll(1, TimeUnit.SECONDS)).isNull();
+        assertNoChange(events, version);
+    }
+
+    @Test
+    void moveIsPushedToOtherPlayersWithinASecond() throws Exception {
+        String code = room(2);
+        Cookie guest = guest();
+        join(code, PASSWORD, guest);
+        Live live = connect(guest);
+        BlockingQueue<String> events = subscribed(live, RoomBroadcaster.topic(code));
+        String board = board(code, guest);
+        long version = JsonPath.<Number>read(board, "$.state.version").longValue();
+        String guestId = JsonPath.read(board, "$.meId");
+        // The creator kept the second character, the newcomer got the narrator.
+        String character = JsonPath.read(board, "$.state.characters[1].id");
+
+        long sent = System.nanoTime();
+        mvc.perform(
+                        put("/api/rooms/" + code + "/assignments/" + character)
+                                .cookie(creator)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"participantId\":\"" + guestId + "\"}"))
+                .andExpect(status().isOk());
+
+        String event = awaitState(events, e -> stateVersion(e) > version);
+        assertThat(Duration.ofNanos(System.nanoTime() - sent)).isLessThan(Duration.ofSeconds(1));
+        assertThat(stateVersion(event)).isEqualTo(version + 1);
+        assertThat((String) JsonPath.read(event, "$.state.characters[1].playerId"))
+                .isEqualTo(guestId);
+    }
+
+    @Test
+    void presenceOfPlayersIsPushed() throws Exception {
+        String code = room(2);
+        Cookie guest = guest();
+        join(code, PASSWORD, guest);
+        Live live = connect(creator);
+        BlockingQueue<String> events = subscribed(live, RoomBroadcaster.topic(code));
+
+        Live other = connect(guest);
+        other.subscribe(RoomBroadcaster.topic(code));
+        awaitState(events, e -> guestConnected(e));
+        other.session.disconnect();
+
+        awaitState(events, e -> !guestConnected(e));
+    }
+
+    @Test
+    void startIsPushedToAllPlayers() throws Exception {
+        String code = room(2);
+        Cookie guest = guest();
+        join(code, PASSWORD, guest);
+        Live live = connect(guest);
+        BlockingQueue<String> events = subscribed(live, RoomBroadcaster.topic(code));
+
+        mvc.perform(post("/api/rooms/" + code + "/start").cookie(creator))
+                .andExpect(status().isOk());
+
+        awaitState(events, e -> "PLAYING".equals(JsonPath.read(e, "$.state.status")));
     }
 
     @Test
@@ -152,10 +218,10 @@ class RoomLiveIntegrationTest {
 
         sender.session.send(
                 RoomBroadcaster.topic(code),
-                "{\"type\":\"PARTICIPANTS\",\"participants\":[]}".getBytes(StandardCharsets.UTF_8));
+                "{\"type\":\"STATE\",\"state\":{}}".getBytes(StandardCharsets.UTF_8));
 
         assertThat(sender.errors.poll(TIMEOUT_S, TimeUnit.SECONDS)).isNotNull();
-        assertThat(events.poll(1, TimeUnit.SECONDS)).isNull();
+        assertNoChange(events, version(code, creator));
     }
 
     @Test
@@ -173,6 +239,57 @@ class RoomLiveIntegrationTest {
     }
 
     // --- Helpers ---
+
+    /**
+     * Next state matching, skipping the others: a subscription also pushes the presence of its
+     * player, at a moment the test does not control.
+     */
+    private static String awaitState(BlockingQueue<String> events, Predicate<String> matching)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_S);
+        while (true) {
+            long left = deadline - System.nanoTime();
+            String event = events.poll(Math.max(0, left), TimeUnit.NANOSECONDS);
+            assertThat(event).as("expected state").isNotNull();
+            if (matching.test(event)) {
+                return event;
+            }
+        }
+    }
+
+    /** Only presence updates for a second: the version did not change. */
+    private static void assertNoChange(BlockingQueue<String> events, long version)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+        String event;
+        while ((event =
+                        events.poll(
+                                Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS))
+                != null) {
+            assertThat(stateVersion(event)).isEqualTo(version);
+        }
+    }
+
+    private static long stateVersion(String event) {
+        return JsonPath.<Number>read(event, "$.state.version").longValue();
+    }
+
+    /** In a room of two, the guest is the second player. */
+    private static boolean guestConnected(String event) {
+        return JsonPath.<Boolean>read(event, "$.state.players[1].connected");
+    }
+
+    private String board(String code, Cookie player) throws Exception {
+        return mvc.perform(get("/api/rooms/" + code + "/board").cookie(player))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+    }
+
+    private long version(String code, Cookie player) throws Exception {
+        return JsonPath.<Number>read(board(code, player), "$.state.version").longValue();
+    }
 
     /** A STOMP session, with the ERROR frames it received. */
     private record Live(StompSession session, BlockingQueue<String> errors) {

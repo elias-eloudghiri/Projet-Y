@@ -5,6 +5,7 @@ import com.example.back.story.Story;
 import com.example.back.story.StoryService;
 import com.example.back.user.Role;
 import com.example.back.user.UserRepository;
+import java.security.Principal;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,6 +15,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -54,14 +56,19 @@ public class RoomService {
                     Role.GUEST.name().equals(jwt.getClaimAsString(AccessTokenService.CLAIM_ROLE)),
                     jwt.getClaimAsString(AccessTokenService.CLAIM_PSEUDO));
         }
+
+        /** The player of a STOMP session, or null if it was not authenticated by a JWT. */
+        public static Player from(Principal user) {
+            return user instanceof JwtAuthenticationToken token ? from(token.getToken()) : null;
+        }
     }
 
     /** The room (participants loaded) and the caller's participation in it. */
     public record JoinResult(Room room, RoomParticipant participant) {}
 
     /**
-     * Creates a waiting room whose first participant is its creator. Not transactional: a code
-     * taken by a concurrent creation is retried with a new one.
+     * Creates a waiting room whose first participant is its creator, with all the characters. One
+     * transaction per attempt: a code taken by a concurrent creation is retried with a new one.
      */
     public Room create(NewRoom request, UUID creatorId) {
         if (request.storyId() == null) {
@@ -85,7 +92,12 @@ public class RoomService {
                     new Room(code, story, creatorId, passwordHash, playerCount, clock.instant());
             room.addCreator(creatorId, pseudo);
             try {
-                return repository.saveAndFlush(room);
+                return transactions.execute(
+                        tx -> {
+                            Room saved = repository.saveAndFlush(room);
+                            saved.assignAllToCreator();
+                            return saved;
+                        });
             } catch (DataIntegrityViolationException e) {
                 // Same code saved by a concurrent creation since the check above.
                 if (!repository.existsByCode(code)) {
@@ -115,6 +127,15 @@ public class RoomService {
                 .findByCode(code)
                 .map(room -> room.hasParticipant(player.subject(), player.guest()))
                 .orElse(false);
+    }
+
+    /** The participation of a player in a room, if any. */
+    @Transactional(readOnly = true)
+    public Optional<UUID> findParticipantId(String code, Player player) {
+        return repository
+                .findByCode(code)
+                .flatMap(room -> room.findParticipant(player.subject(), player.guest()))
+                .map(RoomParticipant::getId);
     }
 
     /** Same as {@link #getForParticipant}, but tells a non-participant apart (403) from 404. */
@@ -177,9 +198,12 @@ public class RoomService {
         }
         RoomParticipant participant =
                 room.addPlayer(player.subject(), player.guest(), player.pseudo(), clock.instant());
+        // Gives the participant its id, needed by the attribution.
         repository.flush();
+        room.balanceFor(participant);
+        room.stateChanged();
         // Sent to the room's subscribers once committed (see RoomBroadcaster).
-        events.publishEvent(new RoomBroadcaster.ParticipantsChanged(code));
+        events.publishEvent(new RoomBroadcaster.RoomChanged(code));
         return new JoinResult(room, participant);
     }
 

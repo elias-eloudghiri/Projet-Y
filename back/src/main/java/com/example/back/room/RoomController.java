@@ -14,6 +14,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RoomController {
 
     private final RoomService roomService;
+    private final RoomBoardService boardService;
     private final RoomProperties properties;
 
     public record StorySummary(UUID id, String title, int maxPlayers) {}
@@ -53,6 +55,11 @@ public class RoomController {
             List<ParticipantResponse> participants) {}
 
     public record JoinRequest(String password) {}
+
+    /**
+     * @param participantId the player's id, as given in {@link RoomState.PlayerState#id()}
+     */
+    public record AssignRequest(UUID participantId) {}
 
     /**
      * @param participant the caller's participation
@@ -93,6 +100,30 @@ public class RoomController {
                 roomService.join(normalize(code), request.password(), player, http.getRemoteAddr());
         return new JoinResponse(
                 toParticipant(result.participant(), player), toParticipants(result.room(), player));
+    }
+
+    /** Full state of the room and attribution board, reserved to participants. */
+    @GetMapping("/{code}/board")
+    public RoomBoardService.Board board(
+            @PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
+        return boardService.get(normalize(code), Player.from(jwt));
+    }
+
+    /** Gives a character to a player; reserved to the creator. Returns the new state. */
+    @PutMapping("/{code}/assignments/{characterId}")
+    public RoomState assign(
+            @PathVariable String code,
+            @PathVariable UUID characterId,
+            @RequestBody AssignRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return boardService.assign(
+                normalize(code), characterId, request.participantId(), Player.from(jwt));
+    }
+
+    /** Starts the reading; reserved to the creator. Returns the new state. */
+    @PostMapping("/{code}/start")
+    public RoomState start(@PathVariable String code, @AuthenticationPrincipal Jwt jwt) {
+        return boardService.start(normalize(code), Player.from(jwt));
     }
 
     private static String normalize(String code) {

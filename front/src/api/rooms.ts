@@ -32,6 +32,44 @@ export interface Room {
   participants: RoomParticipant[]
 }
 
+/** A player of the shared room state: same for everyone, no `isMe` (see `RoomBoard.meId`). */
+export interface BoardPlayer {
+  /** Participant id, used to target a player; neither a user id nor a guest id. */
+  id: string
+  pseudo: string
+  color: string
+  isGuest: boolean
+  isCreator: boolean
+  /** Whether the player has the room open. */
+  connected: boolean
+}
+
+export interface BoardCharacter {
+  id: string
+  name: string
+  isNarrator: boolean
+  /** Always set: a character has exactly one player. */
+  playerId: string
+}
+
+/** Shared state of a room, pushed live to every player (see `realtime.ts`). */
+export interface RoomState {
+  /** A state older than the displayed one is dropped; presence changes keep the same version. */
+  version: number
+  status: RoomStatus
+  playerCount: number
+  /** In arrival order, the creator first. */
+  players: BoardPlayer[]
+  /** In story order, the narrator first. */
+  characters: BoardCharacter[]
+}
+
+export interface RoomBoard {
+  /** The current player's id in `state.players`. */
+  meId: string
+  state: RoomState
+}
+
 export interface NewRoom {
   storyId: string
   playerCount: number
@@ -47,4 +85,22 @@ export const roomsApi = {
   /** Idempotent: a participant gets back their seat and colour. */
   join: (code: string, password: string) =>
     request<JoinResult>('POST', `/api/rooms/${encodeURIComponent(code)}/join`, { password }),
+  /** Full state; 404 for non-participants. */
+  board: (code: string) =>
+    request<RoomBoard>('GET', `/api/rooms/${encodeURIComponent(code)}/board`),
+  /** Creator only. Returns the new state, also pushed to every player. */
+  assign: (code: string, characterId: string, participantId: string) =>
+    request<RoomState>(
+      'PUT',
+      `/api/rooms/${encodeURIComponent(code)}/assignments/${encodeURIComponent(characterId)}`,
+      { participantId },
+    ),
+  /** Creator only, once every player is in and has a character. */
+  start: (code: string) =>
+    request<RoomState>('POST', `/api/rooms/${encodeURIComponent(code)}/start`),
+}
+
+/** Whether a player has no character, which prevents the start. */
+export function hasNoCharacter(state: RoomState, playerId: string): boolean {
+  return !state.characters.some((c) => c.playerId === playerId)
 }

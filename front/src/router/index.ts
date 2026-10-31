@@ -60,6 +60,13 @@ const router = createRouter({
       component: () => import('../views/RoomView.vue'),
     },
     {
+      // Temporary reading page (US-06), replaced by the reading screen (US-08).
+      path: '/room/:code/lecture',
+      name: 'room-reading',
+      component: () => import('../views/ReadingView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/histoires',
       name: 'admin-stories',
       component: () => import('../views/admin/AdminStoriesView.vue'),

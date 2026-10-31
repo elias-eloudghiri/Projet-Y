@@ -34,6 +34,7 @@ docker-compose.yml (à créer)
 - Back (dev) : `cd back && ./mvnw spring-boot:run` (JDK 25 requis)
 - Tests back : `cd back && ./mvnw test` (Testcontainers : Docker doit tourner)
 - Vérifs front : `cd front && npm run type-check && npm run lint`
+- Tests front : `cd front && npm run test:unit -- --run` (Vitest + Vue Test Utils, fichiers `src/**/__tests__/*.spec.ts`)
 
 ## Règles métier tranchées
 

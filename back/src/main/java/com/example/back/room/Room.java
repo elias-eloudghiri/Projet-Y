@@ -1,8 +1,11 @@
 package com.example.back.room;
 
 import com.example.back.story.Story;
+import com.example.back.story.StoryCharacter;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -12,13 +15,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapKeyColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -60,9 +66,20 @@ public class Room {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /** Increased on every change of the shared state (players, attribution, status). */
+    @Column(name = "state_version", nullable = false)
+    private long stateVersion;
+
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("joinedAt, id")
     private List<RoomParticipant> participants = new ArrayList<>();
+
+    /** Player (participant id) of each character (character id) of the story. */
+    @ElementCollection
+    @CollectionTable(name = "room_assignments", joinColumns = @JoinColumn(name = "room_id"))
+    @MapKeyColumn(name = "character_id")
+    @Column(name = "participant_id", nullable = false)
+    private Map<UUID, UUID> assignments = new HashMap<>();
 
     public Room(
             String code,
@@ -82,6 +99,10 @@ public class Room {
 
     public List<RoomParticipant> getParticipants() {
         return Collections.unmodifiableList(participants);
+    }
+
+    public Map<UUID, UUID> getAssignments() {
+        return Collections.unmodifiableMap(assignments);
     }
 
     /** The creator is the first participant, with the first colour of the palette. */
@@ -128,5 +149,64 @@ public class Room {
 
     public boolean hasParticipant(UUID subject, boolean guest) {
         return findParticipant(subject, guest).isPresent();
+    }
+
+    /** A participant by its own id, the one exposed to the front. */
+    public Optional<RoomParticipant> findParticipant(UUID participantId) {
+        return participants.stream().filter(p -> p.getId().equals(participantId)).findFirst();
+    }
+
+    /** Character ids of the story, in story order. */
+    public List<UUID> characterIds() {
+        return story.getCharacters().stream().map(StoryCharacter::getId).toList();
+    }
+
+    /** Gives every character to the creator. Called once the creator is saved: its id is needed. */
+    void assignAllToCreator() {
+        UUID creator = participants.getFirst().getId();
+        characterIds().forEach(c -> assignments.put(c, creator));
+    }
+
+    /** Hands characters to a player who just joined, already saved (see AssignmentBalancer). */
+    void balanceFor(RoomParticipant newcomer) {
+        AssignmentBalancer.giveToNewcomer(
+                        characterIds(),
+                        assignments,
+                        participants.stream().map(RoomParticipant::getId).toList(),
+                        newcomer.getId())
+                // Only the entries that changed are written.
+                .forEach(this::assign);
+    }
+
+    /**
+     * Gives a character to a player, both checked by the caller.
+     *
+     * @return whether anything changed
+     */
+    boolean assign(UUID characterId, UUID participantId) {
+        if (participantId.equals(assignments.get(characterId))) {
+            return false;
+        }
+        assignments.put(characterId, participantId);
+        return true;
+    }
+
+    long characterCount(RoomParticipant participant) {
+        return assignments.values().stream().filter(participant.getId()::equals).count();
+    }
+
+    /** The planned number of players is reached and each of them has a character. */
+    public boolean isReadyToStart() {
+        return participants.size() == playerCount
+                && participants.stream().allMatch(p -> characterCount(p) > 0);
+    }
+
+    void start() {
+        status = RoomStatus.PLAYING;
+    }
+
+    /** To be called by every change that is broadcast to the players. */
+    void stateChanged() {
+        stateVersion++;
     }
 }

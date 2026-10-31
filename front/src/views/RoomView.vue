@@ -1,19 +1,24 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
-import { ROOM_PASSWORD_MAX_LENGTH, roomsApi, type Room, type RoomParticipant } from '@/api/rooms'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { ROOM_PASSWORD_MAX_LENGTH, hasNoCharacter, roomsApi, type Room } from '@/api/rooms'
 import { ApiError } from '@/api/http'
-import { followRoom } from '@/api/realtime'
+import { useRoomState } from '@/composables/useRoomState'
 import { useAuthStore } from '@/stores/auth'
 import PlayerName from '@/components/PlayerName.vue'
+import AssignmentBoard from '@/components/AssignmentBoard.vue'
 
 /**
- * Share link and waiting room. Anonymous visitors log in or play as guests first; non-participants
- * give the room password. Everything is reloaded from the API, so the page survives a refresh.
+ * Share link, waiting room and attribution board. Anonymous visitors log in or play as guests
+ * first; non-participants give the room password. Everything is reloaded from the API, so the page
+ * survives a refresh. Once the reading starts, every player is sent to the reading page.
  */
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
-const code = String(route.params.code)
+const code = String(route.params.code).toUpperCase()
+const live = useRoomState(code)
+const { meId, state, moveError } = live
 
 type Step = 'loading' | 'identify' | 'password' | 'room' | 'error'
 const step = ref<Step>('loading')
@@ -31,11 +36,45 @@ const submitting = ref(false)
 const linkEl = ref<HTMLElement | null>(null)
 const copyState = ref<'idle' | 'copied' | 'manual'>('idle')
 
-/** Live updates of the waiting room, while the page is open. */
+const starting = ref(false)
+const startError = ref<string | null>(null)
+
+/** Live updates of the room, while the page is open. */
 let stopFollowing: (() => void) | null = null
 
 onMounted(enter)
 onUnmounted(() => stopFollowing?.())
+
+const isCreator = computed(
+  () => state.value?.players.find((p) => p.id === meId.value)?.isCreator ?? false,
+)
+
+/** Why the reading cannot start yet, or null when it can. */
+const startBlocker = computed(() => {
+  const s = state.value
+  if (!s) {
+    return null
+  }
+  const missing = s.playerCount - s.players.length
+  if (missing > 0) {
+    return missing === 1 ? "En attente d'un joueur." : `En attente de ${missing} joueurs.`
+  }
+  const empty = s.players.filter((p) => hasNoCharacter(s, p.id)).map((p) => p.pseudo)
+  if (empty.length > 0) {
+    return `${empty.join(', ')} ${empty.length > 1 ? "n'ont" : "n'a"} aucun personnage.`
+  }
+  return null
+})
+
+// Started by the creator, here or in another tab: everyone goes to the reading page.
+watch(
+  () => state.value?.status,
+  (status) => {
+    if (status && status !== 'WAITING') {
+      void router.replace({ name: 'room-reading', params: { code } })
+    }
+  },
+)
 
 function fail(e: unknown) {
   error.value =
@@ -68,33 +107,22 @@ async function enter() {
 
 async function loadRoom() {
   room.value = await roomsApi.get(code)
+  await live.load()
   step.value = 'room'
-  stopFollowing ??= followRoom(room.value.code, {
-    onEvent: (event) => {
-      if (event.type === 'PARTICIPANTS') {
-        applyParticipants(event.participants)
-      }
-    },
-    // Joins missed while disconnected: reload the list (and who the current player is).
-    onConnect: () => {
-      roomsApi
-        .participants(code)
-        .then(applyParticipants)
-        .catch(() => undefined)
-    },
-  })
+  stopFollowing ??= live.follow()
 }
 
-/** Live list: the current player is recognized by its colour, unique in the room. */
-function applyParticipants(participants: Omit<RoomParticipant, 'isMe'>[]) {
-  if (!room.value) {
-    return
+async function startReading() {
+  startError.value = null
+  starting.value = true
+  try {
+    live.apply(await roomsApi.start(code))
+  } catch (e) {
+    startError.value =
+      e instanceof ApiError ? e.message : 'Impossible de lancer la lecture. Réessaie plus tard.'
+  } finally {
+    starting.value = false
   }
-  const myColor = room.value.participants.find((p) => p.isMe)?.color
-  room.value.participants = participants.map((p) => ({
-    ...p,
-    isMe: 'isMe' in p ? Boolean(p.isMe) : p.color === myColor,
-  }))
 }
 
 async function playAsGuest() {
@@ -167,7 +195,7 @@ async function copyLink() {
 </script>
 
 <template>
-  <section class="card card-wide">
+  <section class="card card-wide" :class="{ 'card-room': step === 'room' }">
     <p v-if="step === 'loading'" class="muted">Chargement…</p>
     <template v-else-if="step === 'error'">
       <h1>Room introuvable</h1>
@@ -230,7 +258,7 @@ async function copyLink() {
       </p>
     </template>
 
-    <template v-else-if="step === 'room' && room">
+    <template v-else-if="step === 'room' && room && state">
       <p class="eyebrow">Salle d'attente</p>
       <h1>{{ room.story.title }}</h1>
       <p class="code">
@@ -253,25 +281,40 @@ async function copyLink() {
 
       <div class="players">
         <div class="players-head">
-          <h2>Joueurs</h2>
-          <span class="count">{{ room.participants.length }} / {{ room.playerCount }} joueurs</span>
+          <h2>Personnages</h2>
+          <span class="count">{{ state.players.length }} / {{ state.playerCount }} joueurs</span>
         </div>
-        <ul class="participants">
-          <li
-            v-for="participant in room.participants"
-            :key="participant.pseudo"
-            :class="{ me: participant.isMe }"
-            :aria-current="participant.isMe ? 'true' : undefined"
+        <p class="hint board-hint">
+          {{
+            isCreator
+              ? 'Glisse un personnage vers un joueur, ou utilise « Attribuer à ». Tout le monde voit le changement.'
+              : 'Le créateur de la room répartit les personnages.'
+          }}
+        </p>
+        <p v-if="moveError" class="alert alert-error" role="alert">{{ moveError }}</p>
+        <AssignmentBoard
+          :state="state"
+          :me-id="meId"
+          :editable="isCreator"
+          @move="(characterId, playerId) => live.move(characterId, playerId)"
+        />
+      </div>
+
+      <div class="start">
+        <template v-if="isCreator">
+          <button
+            type="button"
+            class="btn"
+            :disabled="startBlocker !== null || starting"
+            :aria-describedby="startBlocker ? 'start-blocker' : undefined"
+            @click="startReading"
           >
-            <PlayerName
-              :pseudo="participant.pseudo"
-              :color="participant.color"
-              :role="participant.isGuest ? 'GUEST' : undefined"
-            />
-            <span v-if="participant.isMe" class="you">toi</span>
-            <span v-if="participant.isCreator" class="role">créateur</span>
-          </li>
-        </ul>
+            {{ starting ? 'Lancement…' : 'Lancer la lecture' }}
+          </button>
+          <p v-if="startBlocker" id="start-blocker" class="hint">{{ startBlocker }}</p>
+        </template>
+        <p v-else class="hint">En attente du lancement de la lecture par le créateur.</p>
+        <p v-if="startError" class="alert alert-error" role="alert">{{ startError }}</p>
       </div>
     </template>
   </section>
@@ -280,6 +323,17 @@ async function copyLink() {
 <style scoped>
 .card-wide {
   max-width: 560px;
+}
+
+/* Room of up to four player cards. */
+.card-wide.card-room {
+  max-width: 1000px;
+}
+
+@media (max-width: 640px) {
+  .card-wide.card-room {
+    padding: 1.25rem;
+  }
 }
 
 .muted {
@@ -370,40 +424,20 @@ async function copyLink() {
   font-variant-numeric: tabular-nums;
 }
 
-.participants {
+.board-hint {
+  margin: 0.35rem 0 0.9rem;
+}
+
+.players .alert {
+  margin-bottom: 0.9rem;
+}
+
+.start {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding: 0;
-  list-style: none;
-}
-
-.participants li {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 0.9rem;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-}
-
-.participants li.me {
-  border-color: var(--color-accent);
-  box-shadow: inset 3px 0 0 var(--color-accent);
-}
-
-.you {
-  color: var(--color-heading);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.role {
-  margin-left: auto;
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
+  margin-top: 1.5rem;
 }
 
 .choices {
