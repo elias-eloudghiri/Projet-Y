@@ -1,5 +1,5 @@
 import { computed, reactive, ref, shallowRef } from 'vue'
-import { roomsApi, type RoomState } from '@/api/rooms'
+import { roomsApi, type BoardPlayer, type RoomState } from '@/api/rooms'
 import { ApiError } from '@/api/http'
 import { followRoom } from '@/api/realtime'
 
@@ -30,6 +30,45 @@ export function useRoomState(code: string) {
       }),
     }
   })
+
+  /** Player of each character, as shown (pending moves included): character id → player. */
+  const playersByCharacter = computed(() => {
+    const players = new Map<string, BoardPlayer>()
+    const current = state.value
+    if (!current) {
+      return players
+    }
+    const byId = new Map(current.players.map((p) => [p.id, p]))
+    for (const c of current.characters) {
+      const player = byId.get(c.playerId)
+      if (player) {
+        players.set(c.id, player)
+      }
+    }
+    return players
+  })
+
+  /** Whether the current player created the room: they alone change the attribution. */
+  const isCreator = computed(
+    () => state.value?.players.find((p) => p.id === meId.value)?.isCreator ?? false,
+  )
+
+  /**
+   * Player of a character (character → player), for the current reader indicator (US-09).
+   * Reactive when called in a template or a computed.
+   */
+  function playerOf(characterId: string): BoardPlayer | undefined {
+    return playersByCharacter.value.get(characterId)
+  }
+
+  /**
+   * Colour of a character's name (character → player → colour), undefined for an unknown
+   * character. To be called at display time, never stored with the rendered text: a move then
+   * recolours every name by itself (US-07, US-08).
+   */
+  function characterColor(characterId: string): string | undefined {
+    return playerOf(characterId)?.color
+  }
 
   /** Same version accepted: presence changes are not versioned. */
   function apply(next: RoomState) {
@@ -78,5 +117,16 @@ export function useRoomState(code: string) {
     })
   }
 
-  return { meId, state, moveError, apply, load, move, follow }
+  return {
+    meId,
+    state,
+    isCreator,
+    moveError,
+    playerOf,
+    characterColor,
+    apply,
+    load,
+    move,
+    follow,
+  }
 }

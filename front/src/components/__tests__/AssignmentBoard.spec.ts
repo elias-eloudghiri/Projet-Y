@@ -97,6 +97,20 @@ describe('AssignmentBoard', () => {
     expect(wrapper.emitted('move')).toEqual([['c-alice', 'p-third']])
   })
 
+  it('prevents text selection while a character is dragged', async () => {
+    const wrapper = mountBoard(true)
+    const list = wrapper.findAllComponents(VueDraggable)[0]!
+    const label = wrapper.find('.name').element
+    window.getSelection()!.selectAllChildren(label)
+
+    list.vm.$emit('start', {})
+    expect(document.body.classList.contains('dragging-character')).toBe(true)
+    expect(window.getSelection()!.toString()).toBe('')
+
+    list.vm.$emit('end', {})
+    expect(document.body.classList.contains('dragging-character')).toBe(false)
+  })
+
   it('does not emit a move when the same player is chosen again', async () => {
     const wrapper = mountBoard(true)
     const narrator = wrapper

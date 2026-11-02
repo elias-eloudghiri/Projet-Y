@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import type { BoardCharacter, BoardPlayer, RoomState } from '@/api/rooms'
 import PlayerName from '@/components/PlayerName.vue'
@@ -53,6 +53,23 @@ function dropped(playerId: string, event: { item: HTMLElement }) {
   }
 }
 
+/**
+ * While a character is dragged, no text of the page is selected: the pointer moves across it
+ * (fallback mode), which would otherwise select everything on its way.
+ */
+const DRAGGING = 'dragging-character'
+
+function dragStarted() {
+  window.getSelection()?.removeAllRanges()
+  document.body.classList.add(DRAGGING)
+}
+
+function dragEnded() {
+  document.body.classList.remove(DRAGGING)
+}
+
+onUnmounted(dragEnded)
+
 function chosen(character: BoardCharacter, event: Event) {
   const playerId = (event.target as HTMLSelectElement).value
   if (playerId !== character.playerId) {
@@ -100,6 +117,8 @@ function chosen(character: BoardCharacter, event: Event) {
           filter=".assign"
           :prevent-on-filter="false"
           ghost-class="ghost"
+          @start="dragStarted"
+          @end="dragEnded"
           @add="dropped(column.player.id, $event)"
         >
           <li
@@ -215,9 +234,16 @@ function chosen(character: BoardCharacter, event: Event) {
   border-radius: 6px;
 }
 
+/* A character is a grab handle: pressing it must not start a text selection. */
 .editable .character {
   cursor: grab;
   touch-action: manipulation;
+  user-select: none;
+}
+
+:global(body.dragging-character) {
+  user-select: none;
+  cursor: grabbing;
 }
 
 .editable .character:hover {

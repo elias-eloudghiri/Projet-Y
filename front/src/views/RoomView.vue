@@ -18,7 +18,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const code = String(route.params.code).toUpperCase()
 const live = useRoomState(code)
-const { meId, state, moveError } = live
+const { meId, state, isCreator, moveError } = live
 
 type Step = 'loading' | 'identify' | 'password' | 'room' | 'error'
 const step = ref<Step>('loading')
@@ -44,10 +44,6 @@ let stopFollowing: (() => void) | null = null
 
 onMounted(enter)
 onUnmounted(() => stopFollowing?.())
-
-const isCreator = computed(
-  () => state.value?.players.find((p) => p.id === meId.value)?.isCreator ?? false,
-)
 
 /** Why the reading cannot start yet, or null when it can. */
 const startBlocker = computed(() => {

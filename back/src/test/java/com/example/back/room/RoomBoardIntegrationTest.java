@@ -16,6 +16,7 @@ import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -309,7 +310,99 @@ class RoomBoardIntegrationTest {
                 .andExpect(status().isOk());
     }
 
+    // --- Moves during the reading (US-07) ---
+
+    @Test
+    void creatorMovesTheNarratorDuringTheReadingAndNothingElseChanges() throws Exception {
+        String code = room(2, 3);
+        Cookie guest = guest();
+        join(code, guest);
+        start(code, creator).andExpect(status().isOk());
+        Board before = board(code, guest);
+        Map<String, Object> othersBefore = everythingButAttribution(code, guest);
+        Character narrator = before.characters().getFirst();
+        // The newcomer got the narrator.
+        assertThat(narrator.player()).isEqualTo(before.meId());
+
+        assign(code, narrator.id(), creatorId(before), creator)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PLAYING"))
+                .andExpect(jsonPath("$.characters[0].playerId").value(creatorId(before).toString()));
+
+        Board after = board(code, guest);
+        assertThat(after.version()).isEqualTo(before.version() + 1);
+        assertThat(after.characters().getFirst().player()).isEqualTo(creatorId(before));
+        assertThat(after.characters().subList(1, 3))
+                .isEqualTo(before.characters().subList(1, 3));
+        // Status, players and, once it exists (US-09), the reading position stay as they were.
+        assertThat(everythingButAttribution(code, guest)).isEqualTo(othersBefore);
+    }
+
+    @Test
+    void otherPlayersCannotMoveCharactersDuringTheReading() throws Exception {
+        String code = room(3, 3);
+        Cookie guest = guest();
+        Cookie account = accessCookie(register());
+        join(code, guest);
+        join(code, account);
+        start(code, creator).andExpect(status().isOk());
+        Board before = board(code, guest);
+
+        for (Cookie player : List.of(guest, account)) {
+            assign(code, before.characters().getFirst().id(), board(code, player).meId(), player)
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("ROOM_NOT_CREATOR"));
+        }
+
+        assertThat(board(code, guest)).isEqualTo(before);
+    }
+
+    @Test
+    void movesDuringTheReadingKeepOnePlayerPerCharacter() throws Exception {
+        String code = room(2, 4);
+        Cookie guest = guest();
+        join(code, guest);
+        start(code, creator).andExpect(status().isOk());
+        Board board = board(code, guest);
+
+        // Every character to the guest, then back and forth, the narrator included.
+        for (Character c : board.characters()) {
+            assign(code, c.id(), board.meId(), creator).andExpect(status().isOk());
+        }
+        assign(code, board.characters().getFirst().id(), creatorId(board), creator)
+                .andExpect(status().isOk());
+        assign(code, board.characters().get(2).id(), creatorId(board), creator)
+                .andExpect(status().isOk());
+
+        Board after = board(code, guest);
+        assertThat(after.characters()).hasSize(4);
+        assertThat(after.characters()).allMatch(c -> after.players().contains(c.player()));
+        assertThat(after.counts()).containsExactly(2, 2);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM room_assignments a JOIN rooms r ON r.id ="
+                                        + " a.room_id WHERE r.code = ?",
+                                Integer.class,
+                                code))
+                .isEqualTo(4);
+    }
+
     // --- Helpers ---
+
+    /** The shared state of the room without the attribution and its version. */
+    private Map<String, Object> everythingButAttribution(String code, Cookie player)
+            throws Exception {
+        String json =
+                mvc.perform(get("/api/rooms/" + code + "/board").cookie(player))
+                        .andExpect(status().isOk())
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString();
+        Map<String, Object> state = new HashMap<>(JsonPath.read(json, "$.state"));
+        state.remove("characters");
+        state.remove("version");
+        return state;
+    }
 
     private record Character(UUID id, String name, boolean narrator, UUID player) {}
 

@@ -4,20 +4,24 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { roomsApi, type Room } from '@/api/rooms'
 import { ApiError } from '@/api/http'
 import { useRoomState } from '@/composables/useRoomState'
-import AssignmentBoard from '@/components/AssignmentBoard.vue'
+import AssignmentPanel from '@/components/AssignmentPanel.vue'
+import PlayerName from '@/components/PlayerName.vue'
 
 /**
  * Temporary reading page, reached by every player when the creator starts the reading. The
- * reading screen itself comes with US-08; until then it recalls who plays which character.
+ * reading screen itself comes with US-08; until then it lists the cast, each name in the colour of
+ * its player. The attribution panel opens over the page: the creator changes the attribution
+ * without leaving the reading (US-07).
  */
 const route = useRoute()
 const router = useRouter()
 const code = String(route.params.code).toUpperCase()
 const live = useRoomState(code)
-const { meId, state } = live
+const { meId, state, isCreator, moveError } = live
 
 const room = ref<Room | null>(null)
 const error = ref<string | null>(null)
+const panelOpen = ref(false)
 let stopFollowing: (() => void) | null = null
 
 onMounted(async () => {
@@ -48,13 +52,46 @@ onUnmounted(() => stopFollowing?.())
     </template>
     <p v-else-if="!room || !state" class="muted">Chargement…</p>
     <template v-else>
-      <p class="eyebrow">Lecture en cours</p>
-      <h1>{{ room.story.title }}</h1>
+      <div class="head">
+        <div>
+          <p class="eyebrow">Lecture en cours</p>
+          <h1>{{ room.story.title }}</h1>
+        </div>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          aria-haspopup="dialog"
+          data-test="open-assignment"
+          @click="panelOpen = true"
+        >
+          {{ isCreator ? 'Modifier les personnages' : 'Voir les personnages' }}
+        </button>
+      </div>
       <p class="lead">
         La lecture a commencé. L'écran de lecture arrive bientôt : en attendant, voici qui lit quel
         personnage.
       </p>
-      <AssignmentBoard :state="state" :me-id="meId" :editable="false" />
+      <ul class="cast" aria-label="Distribution">
+        <li v-for="character in state.characters" :key="character.id" data-test="cast">
+          <!-- Colour read from the attribution at display time, as the reading screen will. -->
+          <span class="name" :style="{ color: live.characterColor(character.id) }">
+            {{ character.name }}
+          </span>
+          <PlayerName
+            v-if="live.playerOf(character.id)"
+            :pseudo="live.playerOf(character.id)!.pseudo"
+          />
+        </li>
+      </ul>
+      <AssignmentPanel
+        :open="panelOpen"
+        :state="state"
+        :me-id="meId"
+        :editable="isCreator"
+        :error="moveError"
+        @close="panelOpen = false"
+        @move="(characterId, playerId) => live.move(characterId, playerId)"
+      />
     </template>
   </section>
 </template>
@@ -73,6 +110,14 @@ onUnmounted(() => stopFollowing?.())
   margin-top: 1rem;
 }
 
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
 .eyebrow {
   color: var(--color-text-muted);
   font-size: 0.85rem;
@@ -81,6 +126,27 @@ onUnmounted(() => stopFollowing?.())
 }
 
 .card h1 {
+  overflow-wrap: anywhere;
+}
+
+.cast {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cast li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.75rem;
+}
+
+.cast .name {
+  font-weight: 700;
   overflow-wrap: anywhere;
 }
 

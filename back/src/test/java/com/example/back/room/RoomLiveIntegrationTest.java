@@ -188,6 +188,59 @@ class RoomLiveIntegrationTest {
     }
 
     @Test
+    void moveDuringTheReadingIsPushedWithinASecond() throws Exception {
+        String code = room(2);
+        Cookie guest = guest();
+        join(code, PASSWORD, guest);
+        mvc.perform(post("/api/rooms/" + code + "/start").cookie(creator))
+                .andExpect(status().isOk());
+        Live live = connect(guest);
+        BlockingQueue<String> events = subscribed(live, RoomBroadcaster.topic(code));
+        String board = board(code, guest);
+        long version = JsonPath.<Number>read(board, "$.state.version").longValue();
+        String creatorId = JsonPath.read(board, "$.state.players[0].id");
+        // The newcomer got the narrator.
+        String narrator = JsonPath.read(board, "$.state.characters[0].id");
+
+        long sent = System.nanoTime();
+        mvc.perform(
+                        put("/api/rooms/" + code + "/assignments/" + narrator)
+                                .cookie(creator)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"participantId\":\"" + creatorId + "\"}"))
+                .andExpect(status().isOk());
+
+        String event = awaitState(events, e -> stateVersion(e) > version);
+        assertThat(Duration.ofNanos(System.nanoTime() - sent)).isLessThan(Duration.ofSeconds(1));
+        assertThat((String) JsonPath.read(event, "$.state.status")).isEqualTo("PLAYING");
+        assertThat((String) JsonPath.read(event, "$.state.characters[0].playerId"))
+                .isEqualTo(creatorId);
+    }
+
+    @Test
+    void refusedMoveIsNotPushed() throws Exception {
+        String code = room(2);
+        Cookie guest = guest();
+        join(code, PASSWORD, guest);
+        mvc.perform(post("/api/rooms/" + code + "/start").cookie(creator))
+                .andExpect(status().isOk());
+        Live live = connect(creator);
+        BlockingQueue<String> events = subscribed(live, RoomBroadcaster.topic(code));
+        String board = board(code, guest);
+        String guestId = JsonPath.read(board, "$.meId");
+        String character = JsonPath.read(board, "$.state.characters[1].id");
+
+        mvc.perform(
+                        put("/api/rooms/" + code + "/assignments/" + character)
+                                .cookie(guest)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"participantId\":\"" + guestId + "\"}"))
+                .andExpect(status().isForbidden());
+
+        assertNoChange(events, version(code, creator));
+    }
+
+    @Test
     void nonParticipantCannotFollowRoom() throws Exception {
         String code = room(3);
         Live outsider = connect(guest());
