@@ -327,13 +327,13 @@ class RoomBoardIntegrationTest {
         assign(code, narrator.id(), creatorId(before), creator)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PLAYING"))
-                .andExpect(jsonPath("$.characters[0].playerId").value(creatorId(before).toString()));
+                .andExpect(
+                        jsonPath("$.characters[0].playerId").value(creatorId(before).toString()));
 
         Board after = board(code, guest);
         assertThat(after.version()).isEqualTo(before.version() + 1);
         assertThat(after.characters().getFirst().player()).isEqualTo(creatorId(before));
-        assertThat(after.characters().subList(1, 3))
-                .isEqualTo(before.characters().subList(1, 3));
+        assertThat(after.characters().subList(1, 3)).isEqualTo(before.characters().subList(1, 3));
         // Status, players and, once it exists (US-09), the reading position stay as they were.
         assertThat(everythingButAttribution(code, guest)).isEqualTo(othersBefore);
     }
