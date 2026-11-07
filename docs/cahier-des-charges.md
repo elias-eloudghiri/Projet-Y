@@ -162,7 +162,7 @@ Chaque fonctionnalité est une user story ; ses critères d'acceptation servent 
 Le format des histoires est le principal risque technique : l'application doit savoir qui parle et où commence chaque réplique pour colorer les noms, indiquer le lecteur et déclencher les sons.
 
 - **Choix retenu** : PDF avec convention stricte, analysé par l'application. Une faute de mise en page peut casser la lecture : la convention doit être documentée et l'import doit signaler précisément les erreurs.
-- **Convention PDF** : [à définir avec le client : marquage des noms de personnages, des répliques, des images, liste des personnages et nombre de joueurs]
+- **Convention PDF** : proposition dans [convention-pdf.md](convention-pdf.md), à valider avec le client (styles Personnage / Réplique / Indication, noms réservés, images, erreurs d'import)
 - **Syntaxe des commandes audio** : [à définir]
 - **Fourniture** : histoires, images, musiques et sons fournis par [le client ?], dans les formats [MP3, OGG ?]
 - **Droits** : le client garantit disposer des droits sur les textes, images et sons publiés.
